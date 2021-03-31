@@ -18,6 +18,12 @@ SECTIONS
 	look for the memory map.
 */
 
-
-end = . ;
+	. = 0x80000000;
+	start = .;
+	. = 0x80010000;
+	.text : { *(.text) }
+	.data : { *(.data) }
+	.bss  : { *(.bss)  }	
+	. = 0xa0000000;
+	end = .;
 }
