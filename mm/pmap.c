@@ -30,8 +30,7 @@ void mips_detect_memory()
     // Step 2: Calculate corresponding npage value.
 
     printf("Physical memory: %dK available, ", (int)(maxpa / 1024));
-    printf("base = %dK, extended = %dK\n", (int)(basemem / 1024),
-           (int)(extmem / 1024));
+    printf("base = %dK, extended = %dK\n", (int)(basemem / 1024), (int)(extmem / 1024));
 }
 
 /* Overview:
@@ -398,8 +397,7 @@ tlb_invalidate(Pde *pgdir, u_long va)
     }
 }
 
-void
-physical_memory_manage_check(void)
+void physical_memory_manage_check(void)
 {
     struct Page *pp, *pp0, *pp1, *pp2;
     struct Page_list fl;
@@ -414,8 +412,6 @@ physical_memory_manage_check(void)
     assert(pp0);
     assert(pp1 && pp1 != pp0);
     assert(pp2 && pp2 != pp1 && pp2 != pp0);
-
-
 
     // temporarily steal the rest of the free pages
     fl = page_free_list;
@@ -449,47 +445,44 @@ physical_memory_manage_check(void)
 	test_pages= (struct Page *)alloc(10 * sizeof(struct Page), BY2PG, 1);
 	LIST_INIT(&test_free);
 	//LIST_FIRST(&test_free) = &test_pages[0];
-	int i,j=0;
+	int i, j = 0;
 	struct Page *p, *q;
 	//test inert tail
-	for(i=0;i<10;i++) {
+	for (i = 0; i < 10; i++) {
 		test_pages[i].pp_ref=i;
 		//test_pages[i].pp_link=NULL;
 		//printf("0x%x  0x%x\n",&test_pages[i], test_pages[i].pp_link.le_next);
 		LIST_INSERT_TAIL(&test_free,&test_pages[i],pp_link);
 		//printf("0x%x  0x%x\n",&test_pages[i], test_pages[i].pp_link.le_next);
-
 	}
 	p = LIST_FIRST(&test_free);
-	int answer1[]={0,1,2,3,4,5,6,7,8,9};
-	assert(p!=NULL);
-	while(p!=NULL)
+	int answer1[] = {0,1,2,3,4,5,6,7,8,9};
+	assert(p != NULL);
+	while(p != NULL)
 	{
 		//printf("%d %d\n",p->pp_ref,answer1[j]);
-		assert(p->pp_ref==answer1[j++]);
+		assert(p->pp_ref == answer1[j++]);
 		//printf("ptr: 0x%x v: %d\n",(p->pp_link).le_next,((p->pp_link).le_next)->pp_ref);
-		p=LIST_NEXT(p,pp_link);
+		p = LIST_NEXT(p,pp_link);
 
 	}
 	// insert_after test
-	int answer2[]={0,1,2,3,4,20,5,6,7,8,9};
-	q=(struct Page *)alloc(sizeof(struct Page), BY2PG, 1);
+	int answer2[] = {0,1,2,3,4,20,5,6,7,8,9};
+	q = (struct Page *)alloc(sizeof(struct Page), BY2PG, 1);
 	q->pp_ref = 20;
 
 	//printf("---%d\n",test_pages[4].pp_ref);
 	LIST_INSERT_AFTER(&test_pages[4], q, pp_link);
 	//printf("---%d\n",LIST_NEXT(&test_pages[4],pp_link)->pp_ref);
 	p = LIST_FIRST(&test_free);
-	j=0;
+	j = 0;
 	//printf("into test\n");
-	while(p!=NULL){
+	while(p != NULL) {
 	//      printf("%d %d\n",p->pp_ref,answer2[j]);
-			assert(p->pp_ref==answer2[j++]);
-			p=LIST_NEXT(p,pp_link);
+		assert(p->pp_ref == answer2[j++]);
+		p = LIST_NEXT(p,pp_link);
 	}
 
-
-   
     printf("physical_memory_manage_check() succeeded\n");
 }
 
