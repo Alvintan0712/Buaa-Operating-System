@@ -30,7 +30,7 @@ void mips_detect_memory()
     extmem = 0;
 
     // Step 2: Calculate corresponding npage value.
-    npage = basemem >> PGSHIFT;
+    npage = PPN(basemem);
 
     printf("Physical memory: %dK available, ", (int)(maxpa / 1024));
     printf("base = %dK, extended = %dK\n", (int)(basemem / 1024), (int)(extmem / 1024));
@@ -178,19 +178,19 @@ void page_init(void)
     LIST_INIT(&page_free_list);
 
     /* Step 2: Align `freemem` up to multiple of BY2PG. */
-    ROUND(freemem, BY2PG);
+    freemem = ROUND(freemem, BY2PG);
 
     /* Step 3: Mark all memory blow `freemem` as used(set `pp_ref`
      * filed to 1) */
     struct Page *page;
     u_long i;
-    u_long freemem_size = PPN(PADDR(freemem));
-    for (i = 0; i < freemem_size; i++) pages[i].pp_ref = 1;
+    u_long page_size = PPN(PADDR(freemem));
+    for (i = 0; i < page_size; i++) pages[i].pp_ref = 1;
 
     /* Step 4: Mark the other memory as free. */
     for (i; i < npage; i++) {
-        pages[i].pp_ref = 0;
         LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+        pages[i].pp_ref = 0;
     }
 }
 
