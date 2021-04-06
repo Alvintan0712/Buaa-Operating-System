@@ -15,7 +15,7 @@
  */
 #define BY2PG		4096		// bytes to a page
 #define PDMAP		(4*1024*1024)	// bytes mapped by a page directory entry
-#define PGSHIFT		12
+#define PGSHIFT		12		// log2(BY2PG)
 #define PDSHIFT		22		// log2(PDMAP)
 #define PDX(va)		((((u_long)(va))>>22) & 0x03FF)
 #define PTX(va)		((((u_long)(va))>>12) & 0x03FF)

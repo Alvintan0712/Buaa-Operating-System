@@ -26,8 +26,11 @@ void mips_detect_memory()
 {
     /* Step 1: Initialize basemem.
      * (When use real computer, CMOS tells us how many kilobytes there are). */
+    maxpa = basemem = 1 << 26; // 64MB = 2^26
+    extmem = 0;
 
     // Step 2: Calculate corresponding npage value.
+    npage = basemem >> PGSHIFT;
 
     printf("Physical memory: %dK available, ", (int)(maxpa / 1024));
     printf("base = %dK, extended = %dK\n", (int)(basemem / 1024), (int)(extmem / 1024));
@@ -168,21 +171,27 @@ void mips_vm_init()
 	are reference counted, and free pages are kept on a linked list.
   Hint:
 	Use `LIST_INSERT_HEAD` to insert something to list.*/
-void
-page_init(void)
+void page_init(void)
 {
     /* Step 1: Initialize page_free_list. */
     /* Hint: Use macro `LIST_INIT` defined in include/queue.h. */
-
+    LIST_INIT(&page_free_list);
 
     /* Step 2: Align `freemem` up to multiple of BY2PG. */
-
+    ROUND(freemem, BY2PG);
 
     /* Step 3: Mark all memory blow `freemem` as used(set `pp_ref`
      * filed to 1) */
-
+    struct Page *page;
+    u_long index = 0;
+    u_long freemem_size = PPN(PADDR(freemem));
+    for (page = pages; index < freemem_size; index++, page++) page->pp_ref = 1;
 
     /* Step 4: Mark the other memory as free. */
+    for (page; index < npage; index++, page++) {
+        page->pp_ref = 0;
+        LIST_INSERT_HEAD(&page_free_list, page, pp_link);
+    }
 }
 
 /*Overview:
@@ -199,32 +208,37 @@ page_init(void)
 
   Hint:
 	Use LIST_FIRST and LIST_REMOVE defined in include/queue.h .*/
-int
-page_alloc(struct Page **pp)
+int page_alloc(struct Page **pp)
 {
     struct Page *ppage_temp;
 
     /* Step 1: Get a page from free memory. If fails, return the error code.*/
-
+    if (LIST_EMPTY(&page_free_list)) return -E_NO_MEM;
 
     /* Step 2: Initialize this page.
      * Hint: use `bzero`. */
+    ppage_temp = LIST_FIRST(&page_free_list);
+    LIST_REMOVE(ppage_temp, pp_link);
+    bzero(page2kva(ppage_temp), BY2PG);
+    *pp = ppage_temp;
 
-
+    return 0;
 }
 
 /*Overview:
 	Release a page, mark it as free if it's `pp_ref` reaches 0.
   Hint:
 	When to free a page, just insert it to the page_free_list.*/
-void
-page_free(struct Page *pp)
+void page_free(struct Page *pp)
 {
     /* Step 1: If there's still virtual address refers to this page, do nothing. */
-
+    if (pp->pp_ref) return;
 
     /* Step 2: If the `pp_ref` reaches to 0, mark this page as free and return. */
-
+    if (pp->pp_ref == 0) {
+        LIST_INSERT_HEAD(&page_free_list, pp, pp_link);
+        return;
+    }
 
     /* If the value of `pp_ref` less than 0, some error must occurred before,
      * so PANIC !!! */
