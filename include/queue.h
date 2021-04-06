@@ -151,7 +151,7 @@
         if (LIST_FIRST((head)) == NULL) LIST_INSERT_HEAD((head), (elm), field);    \
         else {      \
             typeof(elm) p = LIST_FIRST((head)); \
-            while (LIST_NEXT(p, field) != NULL);   \
+            while (LIST_NEXT(p, field) != NULL) p = LIST_NEXT(p, field);   \
             LIST_INSERT_AFTER(p, elm, field);    \
         }   \
     } while (0)
