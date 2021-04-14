@@ -13,16 +13,16 @@
 /*
  * Part 1.  MIPS definitions.
  */
-#define BY2PG		4096		// bytes to a page
-#define PDMAP		(4*1024*1024)	// bytes mapped by a page directory entry
-#define PGSHIFT		12		// log2(BY2PG)
-#define PDSHIFT		22		// log2(PDMAP)
-#define PDX(va)		((((u_long)(va))>>22) & 0x03FF)
-#define PTX(va)		((((u_long)(va))>>12) & 0x03FF)
-#define PTE_ADDR(pte)	((u_long)(pte)&~0xFFF)
+#define BY2PG			4096			// bytes to a page
+#define PDMAP			(4*1024*1024)	// bytes mapped by a page directory entry
+#define PGSHIFT			12				// log2(BY2PG)
+#define PDSHIFT			22				// log2(PDMAP)
+#define PDX(va)			((((u_long)(va))>>22) & 0x03FF) // level 1 page table
+#define PTX(va)			((((u_long)(va))>>12) & 0x03FF) // level 2 page table
+#define PTE_ADDR(pte)	((u_long)(pte) & ~0xFFF) // get the page table entry address
 
 // page number field of address
-#define PPN(va)		(((u_long)(va))>>12)
+#define PPN(va)		(((u_long)(va))>>12) // find the page number
 #define VPN(va)		PPN(va)
 
 #define VA2PFN(va)		(((u_long)(va)) & 0xFFFFF000 ) // va 2 PFN for EntryLo0/1

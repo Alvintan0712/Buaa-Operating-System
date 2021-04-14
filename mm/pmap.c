@@ -30,7 +30,7 @@ void mips_detect_memory()
     extmem = 0;
 
     // Step 2: Calculate corresponding npage value.
-    npage = PPN(basemem);
+    npage = PPN(basemem); // 1 page space have 4KB
 
     printf("Physical memory: %dK available, ", (int)(maxpa / 1024));
     printf("base = %dK, extended = %dK\n", (int)(basemem / 1024), (int)(extmem / 1024));
@@ -85,23 +85,31 @@ static void *alloc(u_int n, u_int align, int clear)
 	then create it.*/
 static Pte *boot_pgdir_walk(Pde *pgdir, u_long va, int create)
 {
-
-    Pde *pgdir_entryp;
-    Pte *pgtable, *pgtable_entry;
+    Pde *pgdir_entryp = NULL;
+    Pte *pgtable = NULL, *pgtable_entry = NULL;
 
     /* Step 1: Get the corresponding page directory entry and page table. */
     /* Hint: Use KADDR and PTE_ADDR to get the page table from page directory
      * entry value. */
-
+    pgdir_entryp = pgdir + PDX(va);
 
     /* Step 2: If the corresponding page table is not exist and parameter `create`
      * is set, create one. And set the correct permission bits for this new page
      * table. */
-
+    if (!((*pgdir_entryp) & PTE_V)) { // if this page table not exist
+        if (create) { 
+            *pgdir_entryp = PADDR(alloc(BY2PG, BY2PG, 1)); // alloc a page directory
+            *pgdir_entryp = (*pgdir_entryp) | PTE_V | PTE_R;
+        } else {
+            return 0;
+        }
+    }
 
     /* Step 3: Get the page table entry for `va`, and return it. */
+    pgtable = (Pte *) KADDR(PTE_ADDR(*pgdir_entryp));
+    pgtable_entry = pgtable + PTX(va);
 
-
+    return pgtable_entry;
 }
 
 /*Overview:
@@ -118,12 +126,14 @@ void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
     Pte *pgtable_entry;
 
     /* Step 1: Check if `size` is a multiple of BY2PG. */
-
+    size = ROUND(size, BY2PG);
 
     /* Step 2: Map virtual address space to physical address. */
     /* Hint: Use `boot_pgdir_walk` to get the page table entry of virtual address `va`. */
-
-
+    for (i = 0; i < size; i += BY2PG) {
+        pgtable_entry = boot_pgdir_walk(pgdir, va + i, 1);
+        *pgtable_entry = PTE_ADDR(pa + i) | perm | PTE_V;
+    }
 }
 
 /* Overview:
@@ -261,24 +271,37 @@ void page_free(struct Page *pp)
 	We use a two-level pointer to store page table entry and return a state code to indicate
 	whether this function execute successfully or not.
     This function have something in common with function `boot_pgdir_walk`.*/
-int
-pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
+int pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
 {
-    Pde *pgdir_entryp;
-    Pte *pgtable;
+    Pde *pgdir_entryp = NULL;
+    Pte *pgtable = NULL;
     struct Page *ppage;
 
     /* Step 1: Get the corresponding page directory entry and page table. */
-
+    pgdir_entryp = pgdir + PDX(va);
 
     /* Step 2: If the corresponding page table is not exist(valid) and parameter `create`
      * is set, create one. And set the correct permission bits for this new page
      * table.
      * When creating new page table, maybe out of memory. */
-
+    if (!(*pgdir_entryp & PTE_V)) {
+        if (create) {
+            if (page_alloc(&ppage) == -E_NO_MEM) {
+                return -E_NO_MEM;
+            } else {
+                ppage->pp_ref++;
+                *pgdir_entryp = page2pa(ppage);
+                *pgdir_entryp = (*pgdir_entryp) | PTE_V | PTE_R;
+            }
+        } else {
+            *ppte = NULL;
+            return 0;
+        }
+    }
 
     /* Step 3: Set the page table entry to `*ppte` as return value. */
-
+    pgtable = (Pte *) KADDR(PTE_ADDR(*pgdir_entryp));
+    *ppte = pgtable + PTX(va);
 
     return 0;
 }
@@ -294,8 +317,7 @@ pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
   Hint:
 	If there is already a page mapped at `va`, call page_remove() to release this mapping.
 	The `pp_ref` should be incremented if the insertion succeeds.*/
-int
-page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
+int page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 {
     u_int PERM;
     Pte *pgtable_entry;
@@ -315,15 +337,17 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
     }
 
     /* Step 2: Update TLB. */
-
     /* hint: use tlb_invalidate function */
-
+    tlb_invalidate(pgdir, va);
 
     /* Step 3: Do check, re-get page table entry to validate the insertion. */
-
     /* Step 3.1 Check if the page can be insert, if can’t return -E_NO_MEM */
+    if (pgdir_walk(pgdir, va, 1, &pgtable_entry) == -E_NO_MEM) 
+        return -E_NO_MEM;
 
     /* Step 3.2 Insert page and increment the pp_ref */
+    *pgtable_entry = page2pa(pp) | PERM;
+    pp->pp_ref++;
 
     return 0;
 }
@@ -334,9 +358,7 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
   Post-Condition:
 	Return a pointer to corresponding Page, and store it's page table entry to *ppte.
 	If `va` doesn't mapped to any Page, return NULL.*/
-struct Page *
-page_lookup(Pde *pgdir, u_long va, Pte **ppte)
-{
+struct Page *page_lookup(Pde *pgdir, u_long va, Pte **ppte) {
     struct Page *ppage;
     Pte *pte;
 
@@ -372,8 +394,7 @@ void page_decref(struct Page *pp) {
 
 // Overview:
 // 	Unmaps the physical page at virtual address `va`.
-void
-page_remove(Pde *pgdir, u_long va)
+void page_remove(Pde *pgdir, u_long va)
 {
     Pte *pagetable_entry;
     struct Page *ppage;
@@ -401,8 +422,7 @@ page_remove(Pde *pgdir, u_long va)
 
 // Overview:
 // 	Update TLB.
-void
-tlb_invalidate(Pde *pgdir, u_long va)
+void tlb_invalidate(Pde *pgdir, u_long va)
 {
     if (curenv) {
         tlb_out(PTE_ADDR(va) | GET_ENV_ASID(curenv->env_id));
@@ -501,8 +521,7 @@ void physical_memory_manage_check(void)
 }
 
 
-void
-page_check(void)
+void page_check(void)
 {
     struct Page *pp, *pp0, *pp1, *pp2;
     struct Page_list fl;
@@ -608,6 +627,16 @@ page_check(void)
     page_free(pp0);
     page_free(pp1);
     page_free(pp2);
+
+    // u_long* va = 0x12450;
+    // u_long* pa;
+
+    // page_insert(boot_pgdir, pp, va, PTE_R);
+    // pa = va2pa(boot_pgdir, va);
+    // printf("va: %x -> pa: %x\n", va, pa);
+    // *va = 0x88888;
+    // printf("va value: %x\n", *va);
+    // printf("pa value: %x\n", *((u_long *)((u_long)pa + (u_long)ULIM)));
 
     printf("page_check() succeeded!\n");
 }
