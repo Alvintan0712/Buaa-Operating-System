@@ -60,13 +60,17 @@ int envid2env(u_int envid, struct Env **penv, int checkperm)
     struct Env *e;
     /* Hint: If envid is zero, return curenv.*/
     /*Step 1: Assign value to e using envid. */
-
-
+    if (!envid) {
+        *penv = curenv;
+        return 0; 
+    }
+    e = envs + ENVX(envid);
 
     if (e->env_status == ENV_FREE || e->env_id != envid) {
         *penv = 0;
         return -E_BAD_ENV;
     }
+
     /*     Hint:
      *     Check that the calling env has enough permissions
      *     to manipulate the specified env.
@@ -75,9 +79,10 @@ int envid2env(u_int envid, struct Env **penv, int checkperm)
      *     or an immediate child of curenv.
      *     If not, error! */
     /*     Step 2: Make a check according to checkperm. */
-
-
-
+    if (checkperm && !(e == curenv || e->env_parent_id != curenv->env_id)) {
+        *penv = NULL;
+        return -E_BAD_ENV;
+    }
 
     *penv = e;
     return 0;
@@ -92,19 +97,23 @@ int envid2env(u_int envid, struct Env **penv, int checkperm)
  *      LIST_INIT, LIST_INSERT_HEAD
  */
 /*** exercise 3.2 ***/
-void
-env_init(void)
+void env_init(void)
 {
     int i;
     /*Step 1: Initial env_free_list. */
-
+    LIST_INIT(&env_free_list); 
+    // LIST_INIT();
+    // LIST_INIT();
 
     /*Step 2: Traverse the elements of 'envs' array,
      * set their status as free and insert them into the env_free_list.
      * Choose the correct loop order to finish the insertion.
      * Make sure, after the insertion, the order of envs in the list
      * should be the same as it in the envs array. */
-
+    for (i = NENV - 1; i >= 0 ; i--) {
+        envs[i].env_status = ENV_FREE;
+        LIST_INSERT_HEAD(&env_free_list, &envs[i], env_link);
+    }
 
 }
 
@@ -116,10 +125,8 @@ env_init(void)
  *  DO NOT map anything into the user portion of the env's virtual address space.
  */
 /*** exercise 3.4 ***/
-static int
-env_setup_vm(struct Env *e)
+static int env_setup_vm(struct Env *e)
 {
-
     int i, r;
     struct Page *p = NULL;
     Pde *pgdir;
@@ -127,28 +134,24 @@ env_setup_vm(struct Env *e)
     /* Step 1: Allocate a page for the page directory
      * using a function you completed in the lab2 and add its pp_ref.
      * pgdir is the page directory of Env e, assign value for it. */
-    if (      ) {
+    if (r = page_alloc(&p)) {
         panic("env_setup_vm - page alloc error\n");
         return r;
     }
-
-
+    p->pp_ref++;
+    pgdir = (Pde *) page2kva(p);
 
     /*Step 2: Zero pgdir's field before UTOP. */
-
-
-
-
+    bzero(pgdir, PDX(UTOP)*sizeof(Pde)); 
 
     /*Step 3: Copy kernel's boot_pgdir to pgdir. */
-
     /* Hint:
      *  The VA space of all envs is identical above UTOP
      *  (except at UVPT, which we've set below).
      *  See ./include/mmu.h for layout.
      *  Can you use boot_pgdir as a template?
      */
-
+    bcopy(boot_pgdir + PDX(UTOP), pgdir + PDX(UTOP), (PTE2PT - PDX(UTOP))*sizeof(Pde));
 
     // UVPT maps the env's own page table, with read-only permission.
     e->env_pgdir[PDX(UVPT)]  = e->env_cr3 | PTE_V;
@@ -175,18 +178,21 @@ env_setup_vm(struct Env *e)
  *      (the value of PC should NOT be set in env_alloc)
  */
 /*** exercise 3.5 ***/
-int
-env_alloc(struct Env **new, u_int parent_id)
+int env_alloc(struct Env **new, u_int parent_id)
 {
     int r;
     struct Env *e;
 
     /*Step 1: Get a new Env from env_free_list*/
-
+    if (LIST_EMPTY(&env_free_list)) {
+        *new = NULL;
+        return -E_NO_FREE_ENV;
+    }
+    e = LIST_FIRST(&env_free_list);
 
     /*Step 2: Call certain function(has been completed just now) to init kernel memory layout for this new Env.
      *The function mainly maps the kernel address to this new Env address. */
-
+    env_setup_up(e);
 
     /*Step 3: Initialize every field of new Env with appropriate values.*/
 

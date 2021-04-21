@@ -25,9 +25,9 @@ struct Env {
 	u_int env_parent_id;            // env_id of this env's parent
 	u_int env_status;               // Status of the environment
 	Pde  *env_pgdir;                // Kernel virtual address of page dir
-	u_int env_cr3;
+	u_int env_cr3;                  // Physical address
 	LIST_ENTRY(Env) env_sched_link;
-        u_int env_pri;
+    u_int env_pri;
 	// Lab 4 IPC
 	u_int env_ipc_value;            // data value sent to us 
 	u_int env_ipc_from;             // envid of the sender  
