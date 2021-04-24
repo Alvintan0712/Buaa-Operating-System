@@ -16,13 +16,13 @@ void mips_init()
 	env_init();
 	env_check();
 
-	/*you can create some processes(env) here. in terms of binary code, please refer current directory/code_a.c
+	/* you can create some processes(env) here. in terms of binary code, please refer current directory/code_a.c
 	 * code_b.c*/
     /*** exercise 3.9 ***/
-	/*you may want to create process by MACRO, please read env.h file, in which you will find it. this MACRO is very
+	/* you may want to create process by MACRO, please read env.h file, in which you will find it. this MACRO is very
 	 * interesting, have fun please*/
-
-
+	ENV_CREATE_PRIORITY(user_A, 2);
+	ENV_CREATE_PRIORITY(user_B, 1);
 	
 	trap_init();
 	kclock_init();
