@@ -9,15 +9,14 @@
 #include <pmap.h>
 #include <printf.h>
 
-struct Env *envs = NULL;        // All environments
-struct Env *curenv = NULL;            // the current env
+struct Env *envs = NULL;                // All environments
+struct Env *curenv = NULL;              // the current env
 
-static struct Env_list env_free_list;    // Free list
+static struct Env_list env_free_list;   // Free list
 struct Env_list env_sched_list[2];      // Runnable list
  
 extern Pde *boot_pgdir;
 extern char *KERNEL_SP;
-
 
 /* Overview:
  * This function is for making an unique ID for every env.
@@ -114,7 +113,6 @@ void env_init(void)
         LIST_INSERT_HEAD(&env_free_list, &envs[i], env_link);
     }
 }
-
 
 /* Overview:
  *  Initialize the kernel virtual memory layout for 'e'.
@@ -434,13 +432,13 @@ void env_run(struct Env *e)
         curenv->env_tf.pc = curenv->env_tf.cp0_epc;
     }
 
-    /*Step 2: Set 'curenv' to the new environment. */
+    /* Step 2: Set 'curenv' to the new environment. */
     curenv = e;
 
-    /*Step 3: Use lcontext() to switch to its address space. */
+    /* Step 3: Use lcontext() to switch to its address space. */
     lcontext(e->env_pgdir);
 
-    /*Step 4: Use env_pop_tf() to restore the environment's
+    /* Step 4: Use env_pop_tf() to restore the environment's
      * environment   registers and return to user mode.
      *
      * Hint: You should use GET_ENV_ASID there. Think why?
