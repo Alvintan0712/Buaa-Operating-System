@@ -5,7 +5,6 @@
 /* Overview:
  *  Implement simple round-robin scheduling.
  *
- *
  * Hints:
  *  1. The variable which is for counting should be defined as 'static'.
  *  2. Use variable 'env_sched_list', which is a pointer array.
@@ -29,4 +28,33 @@ void sched_yield(void)
      *  functions or macros below may be used (not all):
      *  LIST_INSERT_TAIL, LIST_REMOVE, LIST_FIRST, LIST_EMPTY
      */
+    
+    struct Env *e = curenv; // get the curenv
+    if (e == NULL) {
+        LIST_FOREACH(e, &env_sched_list[point], env_sched_link) { // find the env that is ready
+            if (e->env_status == ENV_RUNNABLE) {
+                count = e->env_pri;
+                break;
+            }
+        }
+    } else if (count == 0) { // change the e to another sched_list
+        LIST_REMOVE(e, env_sched_link); // remove curenv
+        LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link); // insert the env to list tail
+
+        // find the new env
+        if (LIST_EMPTY(&env_sched_list[point])) point ^= 1; // if list empty change list
+        LIST_FOREACH(e, &env_sched_list[point], env_sched_link) { // find the env that is ready
+            if (e->env_status == ENV_RUNNABLE) {
+                count = e->env_pri;
+                break;
+            }
+        }
+    }
+
+    assert(count > 0);
+    assert(e != NULL);
+    assert(e->env_status == ENV_RUNNABLE);
+
+    count--;
+    env_run(e);
 }

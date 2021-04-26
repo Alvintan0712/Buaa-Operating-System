@@ -14,27 +14,35 @@
 #include <asm/asm.h>
 .section .text.exc_vec3
 /*** exercise 3.11 ***/
-
+NESTED(except_vec3, 0, sp)
+    .set noat 
+    .set noreorder
+1:
+    mfc0 k1,CP0_CAUSE
+    la k0,exception_handlers
+    andi k1,0x7c
+    addu k0,k1
+    lw k0,(k0)
+    nop
+    jr k0
+    nop
+END(except_vec3)
+.set at
 
 .data
-            .globl mCONTEXT
+.globl mCONTEXT
 mCONTEXT:
-            .word 0
-
-            .globl delay
+    .word 0
+    .globl delay
 delay:
-            .word 0
-
-            .globl tlbra
+    .word 0
+    .globl tlbra
 tlbra:
-            .word 0
-
-            .section .data.stk
+    .word 0
+    .section .data.stk
 KERNEL_STACK:
-            .space 0x8000
-
-
-            .text
+    .space 0x8000
+    .text
 LEAF(_start)
     
     .set    mips2

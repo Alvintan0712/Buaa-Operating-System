@@ -9,7 +9,7 @@ KERNEL_SP:
 .word		0
 .text
 .set noreorder
-//	.set noat
+//.set noat
 LEAF(env_pop_tf)
 	.set	mips1
 	//1:	j	1b

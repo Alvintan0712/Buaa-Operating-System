@@ -3,17 +3,21 @@ ENTRY(_start)
 
 SECTIONS
 {
-  . = 0x80010000;
-  
   /*** exercise 3.12 ***/
+  . = 0x80000080;
+  .except_vec3 : {
+      *(.text.exc_vec3)
+  }
+
+  . = 0x80010000;
   
   .text : {
         *(.text)
-    }
+  }
 
   .bss  : {
    *(.bss)
-   }
+  }
 
   .data : {
 	*(.data)
@@ -25,5 +29,5 @@ SECTIONS
 
   . = 0x80400000;
 
-   end = . ;
+  end = . ;
 }
