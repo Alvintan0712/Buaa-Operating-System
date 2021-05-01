@@ -64,6 +64,12 @@ u_int sys_getenvid(void)
 /*** exercise 4.6 ***/
 void sys_yield(void)
 {
+	bcopy(
+		(void *)KERNEL_SP - sizeof(struct Trapframe),
+		(void *)TIMESTACK - sizeof(struct Trapframe),
+		sizeof(struct Trapframe)
+	);
+	sched_yield();
 }
 
 /* Overview:
@@ -138,12 +144,16 @@ int sys_set_pgfault_handler(int sysno, u_int envid, u_int func, u_int xstacktop)
 /*** exercise 4.3 ***/
 int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 {
-	// Your code here.
 	struct Env *env;
 	struct Page *ppage;
-	int ret;
-	ret = 0;
-
+	int ret = 0;
+	
+	// Your code here.
+	if (va >= UTOP || (perm & PTE_COW) || !(perm & PTE_V)) return -E_INVAL;
+	if (ret = page_alloc(&ppage)) return ret;
+	if (ret = envid2env(envid, &env, 1)) return ret;
+	ret = page_insert(env->env_pgdir, ppage, ROUNDDOWN(va, BY2PG), perm);
+	return ret;
 }
 
 /* Overview:
@@ -160,22 +170,25 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
  * 	Cannot access pages above UTOP.
  */
 /*** exercise 4.4 ***/
-int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
-				u_int perm)
+int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva, u_int perm)
 {
-	int ret;
-	u_int round_srcva, round_dstva;
-	struct Env *srcenv;
-	struct Env *dstenv;
-	struct Page *ppage;
+	int ret = 0;
+	struct Env *srcenv, *dstenv;
+	struct Page *ppage = NULL;
 	Pte *ppte;
 
-	ppage = NULL;
-	ret = 0;
-	round_srcva = ROUNDDOWN(srcva, BY2PG);
-	round_dstva = ROUNDDOWN(dstva, BY2PG);
+	u_int round_srcva = ROUNDDOWN(srcva, BY2PG);
+	u_int round_dstva = ROUNDDOWN(dstva, BY2PG);
 
-    //your code here
+    // your code here
+	if (srcva >= UTOP || dstva >= UTOP) return -E_INVAL;
+	if ((perm & PTE_COW) || !(perm & PTE_V)) return -E_INVAL;
+	if (ret = envid2env(srcid, &srcenv, 1)) return ret;
+	if (ret = envid2env(dstid, &dstenv, 1)) return ret;
+	ppage = page_lookup(srcenv->env_pgdir, round_srcva, &ppte);
+	if (ppage == 0) return -E_INVAL;
+	else if (!(*ppte & PTE_R) && (perm & PTE_R)) return -E_INVAL;
+	ret = page_insert(dstenv->env_pgdir, ppage, round_dstva, perm);
 
 	return ret;
 }
@@ -193,10 +206,12 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 int sys_mem_unmap(int sysno, u_int envid, u_int va)
 {
 	// Your code here.
-	int ret;
+	int ret = 0;
 	struct Env *env;
-
-	return ret;
+	if (ROUNDDOWN(va, BY2PG) >= UTOP) return -E_INVAL;
+	if (ret = envid2env(envid, &env, 1)) return ret;
+	page_remove(env->env_pgdir, va);
+	return 0;
 	//	panic("sys_mem_unmap not implemented");
 }
 
@@ -218,7 +233,10 @@ int sys_env_alloc(void)
 	// Your code here.
 	int r;
 	struct Env *e;
+	if (r = env_alloc(&e, curenv->env_id)) return r;
+	bcopy(KERNEL_SP - sizeof(struct Trapframe), &(e->env_tf), sizeof(struct Trapframe));
 
+	e->env_status = ENV_NOT_RUNNABLE;
 
 	return e->env_id;
 	//	panic("sys_env_alloc not implemented");
@@ -296,6 +314,11 @@ void sys_panic(int sysno, char *msg)
 /*** exercise 4.7 ***/
 void sys_ipc_recv(int sysno, u_int dstva)
 {
+	if (dstva >= UTOP) return;
+	curenv->env_ipc_recving = 1;
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sys_yield();
 }
 
 /* Overview:
@@ -316,13 +339,28 @@ void sys_ipc_recv(int sysno, u_int dstva)
  * Hint: the only function you need to call is envid2env.
  */
 /*** exercise 4.7 ***/
-int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
-					 u_int perm)
+int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva, u_int perm)
 {
-
 	int r;
 	struct Env *e;
 	struct Page *p;
+
+	if (srcva >= UTOP) return -E_INVAL;
+	if (r = envid2env(envid, &e, 1)) return r;
+	if (!e->env_ipc_recving) return -E_IPC_NOT_RECV;
+
+	if (srcva) {
+		Pte *ppte;
+		p = page_lookup(curenv->env_pgdir, ROUNDDOWN(srcva, BY2PG), &ppte);
+		if (p == 0) return -E_INVAL;
+		if (r = page_insert(e->env_pgdir, p, ROUNDDOWN(e->env_ipc_dstva, BY2PG), perm)) return r;
+	}
+
+	e->env_ipc_recving = 0;
+	e->env_ipc_from = curenv->env_id;
+	e->env_ipc_value = value;
+	e->env_ipc_perm = perm;
+	e->env_status = ENV_RUNNABLE;
 
 	return 0;
 }
