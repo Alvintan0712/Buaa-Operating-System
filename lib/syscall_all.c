@@ -208,9 +208,9 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
 	// Your code here.
 	int ret = 0;
 	struct Env *env;
-	if (ROUNDDOWN(va, BY2PG) >= UTOP) return -E_INVAL;
+	if (va >= UTOP) return -E_INVAL;
 	if (ret = envid2env(envid, &env, 0)) return ret;
-	page_remove(env->env_pgdir, va);
+	page_remove(env->env_pgdir, ROUND_DOWN(va));
 	return 0;
 	//	panic("sys_mem_unmap not implemented");
 }
@@ -364,4 +364,3 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva, u_int per
 
 	return 0;
 }
-
