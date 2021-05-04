@@ -183,8 +183,8 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva, u
     // your code here
 	if (srcva >= UTOP || dstva >= UTOP) return -E_INVAL;
 	if ((perm & PTE_COW) || !(perm & PTE_V)) return -E_INVAL;
-	if (ret = envid2env(srcid, &srcenv, 1)) return ret;
-	if (ret = envid2env(dstid, &dstenv, 1)) return ret;
+	if (ret = envid2env(srcid, &srcenv, 0)) return ret;
+	if (ret = envid2env(dstid, &dstenv, 0)) return ret;
 	ppage = page_lookup(srcenv->env_pgdir, round_srcva, &ppte);
 	if (ppage == 0) return -E_INVAL;
 	else if (!(*ppte & PTE_R) && (perm & PTE_R)) return -E_INVAL;
@@ -209,7 +209,7 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
 	int ret = 0;
 	struct Env *env;
 	if (ROUNDDOWN(va, BY2PG) >= UTOP) return -E_INVAL;
-	if (ret = envid2env(envid, &env, 1)) return ret;
+	if (ret = envid2env(envid, &env, 0)) return ret;
 	page_remove(env->env_pgdir, va);
 	return 0;
 	//	panic("sys_mem_unmap not implemented");
