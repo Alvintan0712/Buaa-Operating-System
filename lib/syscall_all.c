@@ -354,16 +354,15 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva, u_int per
 	if (srcva) {
 		Pte *ppte;
 		p = page_lookup(curenv->env_pgdir, ROUNDDOWN(srcva, BY2PG), &ppte);
-		if (p == 0) return -E_INVAL;
+		if (p == 0 || !(*ppte & PTE_V)) return -E_INVAL;
 		if (r = page_insert(e->env_pgdir, p, ROUNDDOWN(e->env_ipc_dstva, BY2PG), perm)) return r;
+		e->env_ipc_perm = perm;
 	}
 
 	e->env_ipc_recving = 0;
 	e->env_ipc_from = curenv->env_id;
 	e->env_ipc_value = value;
-	e->env_ipc_perm = perm;
 	e->env_status = ENV_RUNNABLE;
 
 	return 0;
 }
-
