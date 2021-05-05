@@ -237,6 +237,8 @@ int sys_env_alloc(void)
 	bcopy(KERNEL_SP - sizeof(struct Trapframe), &(e->env_tf), sizeof(struct Trapframe));
 
 	e->env_status = ENV_NOT_RUNNABLE;
+	LIST_REMOVE(e, env_sched_link);
+	LIST_INSERT_TAIL(&env_sched_list[0], e, env_sched_link);
 
 	return e->env_id;
 	//	panic("sys_env_alloc not implemented");
