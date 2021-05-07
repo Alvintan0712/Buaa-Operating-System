@@ -79,8 +79,7 @@ void user_bzero(void *v, u_int n)
  * the faulting page at correct address.
  */
 /*** exercise 4.13 ***/
-static void
-pgfault(u_int va)
+static void pgfault(u_int va)
 {
 	u_int *tmp;
 	//	writef("fork.c:pgfault():\t va:%x\n",va);
@@ -112,8 +111,7 @@ pgfault(u_int va)
  * should process it correctly.
  */
 /*** exercise 4.10 ***/
-static void
-duppage(u_int envid, u_int pn)
+static void duppage(u_int envid, u_int pn)
 {
 	u_int addr;
 	u_int perm;
@@ -123,7 +121,7 @@ duppage(u_int envid, u_int pn)
 
 /* Overview:
  * 	User-level fork. Create a child and then copy our address space
- * and page fault handler setup to the child.
+ *  and page fault handler setup to the child.
  *
  * Hint: use vpd, vpt, and duppage.
  * Hint: remember to fix "env" in the child process!
@@ -132,8 +130,7 @@ duppage(u_int envid, u_int pn)
  */
 /*** exercise 4.9 4.15***/
 extern void __asm_pgfault_handler(void);
-int
-fork(void)
+int fork(void)
 {
 	// Your code here.
 	u_int newenvid;
@@ -141,7 +138,7 @@ fork(void)
 	extern struct Env *env;
 	u_int i;
 
-
+	if (newenvid = sys_env_alloc() < 0) return newenvid;
 	//The parent installs pgfault using set_pgfault_handler
 
 	//alloc a new alloc
@@ -151,8 +148,7 @@ fork(void)
 }
 
 // Challenge!
-int
-sfork(void)
+int sfork(void)
 {
 	user_panic("sfork not implemented");
 	return -E_INVAL;

@@ -302,6 +302,7 @@ static void load_icode(struct Env *e, u_char *binary, u_int size)
 
     /*Step 4:Set CPU's PC register as appropriate value. */
     e->env_tf.pc = entry_point;
+
 }
 
 /* Overview:
