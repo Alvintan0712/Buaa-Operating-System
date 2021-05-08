@@ -39,7 +39,7 @@ void sched_yield(void)
         // find the new env
         do {
             if (LIST_EMPTY(&env_sched_list[point])) point ^= 1; // if list empty change list
-            e = LIST_FIRST(&env_sched_link[point]);
+            e = LIST_FIRST(&env_sched_list[point]);
             if (e && e->env_status != ENV_RUNNABLE) {
                 LIST_REMOVE(e, env_sched_link);
                 if (e->env_status == ENV_NOT_RUNNABLE) 
