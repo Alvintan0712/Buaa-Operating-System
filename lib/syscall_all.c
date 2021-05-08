@@ -186,8 +186,10 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva, u
 	if (ret = envid2env(srcid, &srcenv, 0)) return ret;
 	if (ret = envid2env(dstid, &dstenv, 0)) return ret;
 	ppage = page_lookup(srcenv->env_pgdir, round_srcva, &ppte);
-	if (ppage == 0) return -E_UNSPECIFIED;
-	else if (ppte && !(*ppte & PTE_R) && (perm & PTE_R)) return -E_UNSPECIFIED;
+	if (ppage == 0) return -E_INVAL;
+	else if (ppte == NULL) return -E_INVAL;
+	else if (!(*ppte & PTE_V)) return -E_INVAL;
+	else if (!(*ppte & PTE_R) && (perm & PTE_R)) return -E_INVAL;
 	ret = page_insert(dstenv->env_pgdir, ppage, round_dstva, perm);
 
 	return ret;
@@ -267,7 +269,8 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	if (ret = envid2env(envid, &env, 1)) return ret;
 	env->env_status = status;
 
-	if (status == ENV_RUNNABLE) LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
+	if (env->env_status != ENV_RUNNABLE && status == ENV_RUNNABLE) 
+		LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
 	else if (status == ENV_FREE) {
 		env_destroy(env);
 		LIST_REMOVE(env, env_sched_link);
@@ -364,11 +367,11 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva, u_int per
 	if (srcva) {
 		Pte *ppte;
 		p = page_lookup(curenv->env_pgdir, ROUNDDOWN(srcva, BY2PG), &ppte);
-		if (p == 0 || !(*ppte & PTE_V)) return -E_INVAL;
-		if (r = page_insert(e->env_pgdir, p, ROUNDDOWN(e->env_ipc_dstva, BY2PG), perm)) return r;
-		e->env_ipc_perm = perm;
+		if (p == 0 || !((*ppte) & PTE_V) < 0) return -E_INVAL;
+		if (r = page_insert(e->env_pgdir, p, ROUNDDOWN(e->env_ipc_dstva, BY2PG), perm) < 0) return r;
 	}
 
+	e->env_ipc_perm = perm;
 	e->env_ipc_recving = 0;
 	e->env_ipc_from = curenv->env_id;
 	e->env_ipc_value = value;
