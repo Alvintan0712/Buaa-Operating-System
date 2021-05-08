@@ -234,11 +234,12 @@ int sys_env_alloc(void)
 	int r;
 	struct Env *e;
 	if (r = env_alloc(&e, curenv->env_id)) return r;
-	bcopy(KERNEL_SP - sizeof(struct Trapframe), &(e->env_tf), sizeof(struct Trapframe));
 
-	e->env_status = ENV_NOT_RUNNABLE;
-	LIST_REMOVE(e, env_sched_link);
-	LIST_INSERT_TAIL(&env_sched_list[0], e, env_sched_link);
+	bcopy(KERNEL_SP - sizeof(struct Trapframe), &(e->env_tf), sizeof(struct Trapframe)); // copy the registers
+	e->env_tf.pc = e->env_tf.cp0_epc; // adjust the pc
+	e->env_tf.regs[2] = 0; // son return 0
+	e->env_status = ENV_NOT_RUNNABLE; // don't schedule
+	e->env_pri = curenv->env_pri; // copy the pri
 
 	return e->env_id;
 	//	panic("sys_env_alloc not implemented");
@@ -262,6 +263,15 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	// Your code here.
 	struct Env *env;
 	int ret;
+	if (status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE && status != ENV_FREE) return -E_INVAL;
+	if (ret = envid2env(envid, &env, 1)) return ret;
+	env->env_status = status;
+
+	if (status == ENV_RUNNABLE) LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
+	else if (status == ENV_FREE) {
+		env_destroy(env);
+		LIST_REMOVE(env, env_sched_link);
+	}
 
 	return 0;
 	//	panic("sys_env_set_status not implemented");
