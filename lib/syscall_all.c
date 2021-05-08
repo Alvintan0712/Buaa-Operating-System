@@ -182,12 +182,12 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva, u
 
     // your code here
 	if (srcva >= UTOP || dstva >= UTOP) return -E_INVAL;
-	if ((perm & PTE_COW) || !(perm & PTE_V)) return -E_INVAL;
+	if (!(perm & PTE_V)) return -E_INVAL;
 	if (ret = envid2env(srcid, &srcenv, 0)) return ret;
 	if (ret = envid2env(dstid, &dstenv, 0)) return ret;
 	ppage = page_lookup(srcenv->env_pgdir, round_srcva, &ppte);
-	if (ppage == 0) return -E_INVAL;
-	else if (!(*ppte & PTE_R) && (perm & PTE_R)) return -E_INVAL;
+	if (ppage == 0) return -E_UNSPECIFIED;
+	else if (ppte && !(*ppte & PTE_R) && (perm & PTE_R)) return -E_UNSPECIFIED;
 	ret = page_insert(dstenv->env_pgdir, ppage, round_dstva, perm);
 
 	return ret;

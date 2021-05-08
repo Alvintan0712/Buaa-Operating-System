@@ -100,9 +100,8 @@ static Pte *boot_pgdir_walk(Pde *pgdir, u_long va, int create)
         if (create) { 
             *pgdir_entryp = PADDR(alloc(BY2PG, BY2PG, 1)); // alloc a page directory
             *pgdir_entryp = (*pgdir_entryp) | PTE_V; // give the valid bit
-        } else {
-            return 0;
-        }
+        } 
+        else return 0;
     }
 
     /* Step 3: Get the page table entry for `va`, and return it. */
@@ -122,7 +121,7 @@ static Pte *boot_pgdir_walk(Pde *pgdir, u_long va, int create)
 	Size is a multiple of BY2PG.*/
 void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
 {
-    int i, va_temp;
+    int i;
     Pte *pgtable_entry;
 
     /* Step 1: Check if `size` is a multiple of BY2PG. */
@@ -199,8 +198,8 @@ void page_init(void)
 
     /* Step 4: Mark the other memory as free. */
     for (i; i < npage; i++) {
-        LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
         pages[i].pp_ref = 0;
+        LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
     }
 }
 
@@ -242,7 +241,7 @@ int page_alloc(struct Page **pp)
 void page_free(struct Page *pp)
 {
     /* Step 1: If there's still virtual address refers to this page, do nothing. */
-    if (pp->pp_ref) return;
+    if (pp->pp_ref > 0) return;
 
     /* Step 2: If the `pp_ref` reaches to 0, mark this page as free and return. */
     if (pp->pp_ref == 0) {
@@ -319,9 +318,8 @@ int pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
 	The `pp_ref` should be incremented if the insertion succeeds.*/
 int page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 {
-    u_int PERM;
+    u_int PERM = perm | PTE_V;
     Pte *pgtable_entry;
-    PERM = perm | PTE_V;
 
     /* Step 1: Get corresponding page table entry. */
     pgdir_walk(pgdir, va, 0, &pgtable_entry);
