@@ -368,14 +368,14 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva, u_int per
 	struct Env *e;
 	struct Page *p;
 
-	if (srcva >= UTOP) return -E_IPC_NOT_RECV;
+	if (srcva >= UTOP) return -E_INVAL;
 	if (r = envid2env(envid, &e, 0)) return r;
 	if (!e->env_ipc_recving) return -E_IPC_NOT_RECV;
 
 	if (srcva) {
 		Pte *ppte;
 		p = page_lookup(curenv->env_pgdir, ROUNDDOWN(srcva, BY2PG), &ppte);
-		if (p == 0 || !((*ppte) & PTE_V) < 0) return -E_INVAL;
+		if (p == 0 || !((*ppte) & PTE_V)) return -E_INVAL;
 		if (r = page_insert(e->env_pgdir, p, ROUNDDOWN(e->env_ipc_dstva, BY2PG), perm) < 0) return r;
 	}
 
