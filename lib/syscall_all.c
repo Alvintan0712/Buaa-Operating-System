@@ -213,6 +213,7 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
 	// Your code here.
 	int ret = 0;
 	struct Env *env;
+
 	if (va >= UTOP) return -E_INVAL;
 	if (ret = envid2env(envid, &env, 0)) return ret;
 	page_remove(env->env_pgdir, ROUNDDOWN(va, BY2PG));
@@ -238,8 +239,8 @@ int sys_env_alloc(void)
 	// Your code here.
 	int r;
 	struct Env *e;
-	if (r = env_alloc(&e, curenv->env_id)) return r;
 
+	if (r = env_alloc(&e, curenv->env_id)) return r;
 	bcopy(KERNEL_SP - sizeof(struct Trapframe), &(e->env_tf), sizeof(struct Trapframe)); // copy the registers
 	e->env_tf.pc = e->env_tf.cp0_epc; // adjust the pc
 	e->env_tf.regs[2] = 0; // son return 0
@@ -283,6 +284,9 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 		LIST_INSERT_TAIL(&env_sched_list[0], env, env_sched_link);
 		env->env_status = status;
 	}
+	// if (env->env_status != ENV_RUNNABLE && status == ENV_RUNNABLE) LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
+	// if (env->env_status == ENV_RUNNABLE && status != ENV_RUNNABLE) LIST_REMOVE(env, env_sched_link);
+	// env->env_status = status;
 
 	return 0;
 	//	panic("sys_env_set_status not implemented");
@@ -375,7 +379,7 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva, u_int per
 	if (srcva) {
 		Pte *ppte;
 		p = page_lookup(curenv->env_pgdir, ROUNDDOWN(srcva, BY2PG), &ppte);
-		if (p == 0 || !((*ppte) & PTE_V)) return -E_INVAL;
+		if ((p == 0) || e->env_ipc_dstva >= UTOP || !(*ppte & PTE_V)) return -E_INVAL;
 		if (r = page_insert(e->env_pgdir, p, ROUNDDOWN(e->env_ipc_dstva, BY2PG), perm) < 0) return r;
 	}
 

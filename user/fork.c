@@ -86,6 +86,7 @@ static void pgfault(u_int va)
 	// writef("fork.c:pgfault():\t va:%x\n",va);
 	// check perm
 	if (!(perm & PTE_COW)) user_panic("not a COW page");
+	perm ^= PTE_COW;
     // map the new page at a temporary place, let it writable
 	if (syscall_mem_alloc(0, tmp, PTE_V | PTE_R)) return;
 	// copy the content
