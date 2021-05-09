@@ -119,6 +119,9 @@ int sys_set_pgfault_handler(int sysno, u_int envid, u_int func, u_int xstacktop)
 	struct Env *env;
 	int ret;
 
+	if (ret = envid2env(envid, &env, 0)) return ret;
+	env->env_pgfault_handler = func;
+	env->env_xstacktop = xstacktop;
 
 	return 0;
 	//	panic("sys_set_pgfault_handler not implemented");
@@ -265,16 +268,20 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	// Your code here.
 	struct Env *env;
 	int ret;
+
 	if (status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE && status != ENV_FREE) return -E_INVAL;
 	if (ret = envid2env(envid, &env, 1)) return ret;
-	env->env_status = status;
 
-	if (env->env_status != ENV_RUNNABLE && status == ENV_RUNNABLE) 
+	if (env->env_status != ENV_RUNNABLE && status == ENV_RUNNABLE) {
 		LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
-	else if (status == ENV_FREE) {
+	} else if (status == ENV_FREE) {
 		env_destroy(env);
 		LIST_REMOVE(env, env_sched_link);
+	} else if (env->env_status == ENV_RUNNABLE && status != ENV_RUNNABLE) {
+		LIST_REMOVE(env, env_sched_link);
+		LIST_INSERT_TAIL(&env_sched_list[0], env, env_sched_link);
 	}
+	env->env_status = status;
 
 	return 0;
 	//	panic("sys_env_set_status not implemented");
@@ -360,7 +367,7 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva, u_int per
 	struct Env *e;
 	struct Page *p;
 
-	if (srcva >= UTOP) return -E_INVAL;
+	if (srcva >= UTOP) return -E_IPC_NOT_RECV;
 	if (r = envid2env(envid, &e, 1)) return r;
 	if (!e->env_ipc_recving) return -E_IPC_NOT_RECV;
 

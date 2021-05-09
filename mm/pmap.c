@@ -96,7 +96,7 @@ static Pte *boot_pgdir_walk(Pde *pgdir, u_long va, int create)
     /* Step 2: If the corresponding page table is not exist and parameter `create`
      * is set, create one. And set the correct permission bits for this new page
      * table. */
-    if (!((*pgdir_entryp) & PTE_V)) { // if this page table not exist
+    if (!(*pgdir_entryp & PTE_V)) { // if this page table not exist
         if (create) { 
             *pgdir_entryp = PADDR(alloc(BY2PG, BY2PG, 1)); // alloc a page directory
             *pgdir_entryp = (*pgdir_entryp) | PTE_V; // give the valid bit
@@ -340,8 +340,7 @@ int page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 
     /* Step 3: Do check, re-get page table entry to validate the insertion. */
     /* Step 3.1 Check if the page can be insert, if can’t return -E_NO_MEM */
-    if (pgdir_walk(pgdir, va, 1, &pgtable_entry) == -E_NO_MEM) 
-        return -E_NO_MEM;
+    if (pgdir_walk(pgdir, va, 1, &pgtable_entry) == -E_NO_MEM) return -E_NO_MEM;
 
     /* Step 3.2 Insert page and increment the pp_ref */
     *pgtable_entry = page2pa(pp) | PERM;
@@ -626,8 +625,8 @@ void page_check(void)
     page_free(pp1);
     page_free(pp2);
 
-    // u_long* va = 0x12450;
-    // u_long* pa;
+    u_long* va = 0x12450;
+    u_long* pa;
 
     // page_insert(boot_pgdir, pp, va, PTE_R);
     // pa = va2pa(boot_pgdir, va);
