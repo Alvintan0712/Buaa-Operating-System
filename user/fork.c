@@ -152,7 +152,7 @@ int fork(void)
 	//alloc a new alloc
 	newenvid = syscall_env_alloc();
 	if (newenvid > 0) {
-		for (int i = 0; i < VPN(USTACKTOP); i++) 
+		for (i = 0; i < VPN(USTACKTOP); i++) 
 			if ((*vpd)[i >> 10] && (*vpt)[i]) 
 				duppage(newenvid, i);
 		if (r = syscall_mem_alloc(newenvid, UXSTACKTOP - BY2PG, PTE_V | PTE_R)) return r;
