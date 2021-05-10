@@ -120,8 +120,8 @@ static void duppage(u_int envid, u_int pn)
 	u_int perm = (*vpt)[pn] & (BY2PG - 1);
 
 	if ((perm & PTE_R) && !(perm & PTE_LIBRARY)) {
-		syscall_mem_map(0, addr, envid, addr, perm | PTE_COW);
 		syscall_mem_map(0, addr, envid, 0, perm | PTE_COW);
+		syscall_mem_map(0, addr, envid, addr, perm | PTE_COW);
 	} else {
 		syscall_mem_map(0, addr, envid, addr, perm);
 	}
