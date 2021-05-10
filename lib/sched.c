@@ -30,7 +30,7 @@ void sched_yield(void)
      */
 
     struct Env *e = curenv; // get the curenv
-    if (count == 0) { // change the e to another sched_list
+    if (count == 0 || e == NULL || e->env_status != ENV_RUNNABLE) { // change the e to another sched_list
         if (e != NULL) {
             LIST_REMOVE(e, env_sched_link); // remove curenv
             LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link); // insert the env to list tail            
