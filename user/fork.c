@@ -81,17 +81,20 @@ void user_bzero(void *v, u_int n)
 /*** exercise 4.13 ***/
 static void pgfault(u_int va)
 {
-	u_int *tmp;
-	//	writef("fork.c:pgfault():\t va:%x\n",va);
-    
-    //map the new page at a temporary place
-
-	//copy the content
-	
-    //map the page on the appropriate place
-	
-    //unmap the temporary place
-	
+	u_int *tmp = USTACKTOP; // user stack top pointer, start at invalid memory
+	u_int perm = (*vpt)[VPN(va)] & (BY2PG - 1); // get the permission bit
+	// writef("fork.c:pgfault():\t va:%x\n",va);
+	// check perm
+	if (!(perm & PTE_COW)) user_panic("not a COW page");
+	perm ^= PTE_COW;
+    // map the new page at a temporary place, let it writable
+	if (syscall_mem_alloc(0, tmp, PTE_V | PTE_R)) return;
+	// copy the content
+	user_bcopy(ROUNDDOWN(va, BY2PG), tmp, BY2PG);
+    // map the page on the appropriate place
+	if (syscall_mem_map(0, tmp, 0, ROUNDDOWN(va, BY2PG), perm)) return;
+    // unmap the temporary place
+	syscall_mem_unmap(0, tmp);
 }
 
 /* Overview:
@@ -100,9 +103,9 @@ static void pgfault(u_int va)
  *
  * Post-Condition:
  *  if the page is writable or copy-on-write, the new mapping must be 
- * created copy on write and then our mapping must be marked 
  * copy on write as well. In another word, both of the new mapping and
  * our mapping should be copy-on-write if the page is writable or 
+ * created copy on write and then our mapping must be marked 
  * copy-on-write.
  * 
  * Hint:
@@ -113,9 +116,15 @@ static void pgfault(u_int va)
 /*** exercise 4.10 ***/
 static void duppage(u_int envid, u_int pn)
 {
-	u_int addr;
-	u_int perm;
+	u_int addr = pn << PGSHIFT;
+	u_int perm = (*vpt)[pn] & (BY2PG - 1);
 
+	if ((perm & PTE_R) && !(perm & PTE_LIBRARY)) { 
+		syscall_mem_map(0, addr, envid, addr, perm | PTE_COW);
+		syscall_mem_map(0, addr, 0, addr, perm | PTE_COW);
+	} else {
+		syscall_mem_map(0, addr, envid, addr, perm);
+	}
 	//	user_panic("duppage not implemented");
 }
 
@@ -137,12 +146,21 @@ int fork(void)
 	extern struct Env *envs;
 	extern struct Env *env;
 	u_int i;
+	int r;
 
-	if (newenvid = sys_env_alloc() < 0) return newenvid;
 	//The parent installs pgfault using set_pgfault_handler
-
+	set_pgfault_handler(pgfault);
 	//alloc a new alloc
-
+	newenvid = syscall_env_alloc();
+	if (newenvid > 0) {
+		for (i = 0; i < VPN(USTACKTOP); i++) 
+			if ((*vpd)[i >> 10] && (*vpt)[i]) 
+				duppage(newenvid, i);
+		if (r = syscall_mem_alloc(newenvid, UXSTACKTOP - BY2PG, PTE_V | PTE_R)) return r;
+		if (r = syscall_set_pgfault_handler(newenvid, __asm_pgfault_handler, UXSTACKTOP)) return r;
+		if (r = syscall_set_env_status(newenvid, ENV_RUNNABLE)) return r;
+	}
+	else if (newenvid == 0) env = envs + ENVX(syscall_getenvid());
 
 	return newenvid;
 }
