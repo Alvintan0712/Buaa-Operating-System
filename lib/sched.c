@@ -30,29 +30,23 @@ void sched_yield(void)
      */
 
     struct Env *e = curenv; // get the curenv
-    if (count == 0) { // change the e to another sched_list
+    if (count == 0 || e == NULL || e->env_status != ENV_RUNNABLE) { // change the e to another sched_list
         if (e != NULL) {
             LIST_REMOVE(e, env_sched_link); // remove curenv
             LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link); // insert the env to list tail            
         }
 
         // find the new env
-        int flag = 0;
-        if (LIST_EMPTY(&env_sched_list[point])) point ^= 1; // if list empty change list
-        LIST_FOREACH(e, &env_sched_list[point], env_sched_link) { // find the env that is ready
-            if (e->env_status == ENV_RUNNABLE) {
-                flag = 1;
-                count = e->env_pri;
-                break;
-            }
-        }
-        if (!flag) { // if env_sched_list don't have any env ready
-            point ^= 1;
-            LIST_FOREACH(e, &env_sched_list[point], env_sched_link) {
-                count = e->env_pri;
-                break;
-            }
-        }
+        do {
+            if (LIST_EMPTY(&env_sched_list[point])) point ^= 1; // if list empty change list
+            e = LIST_FIRST(&env_sched_list[point]);
+            if (e && e->env_status != ENV_RUNNABLE) {
+                LIST_REMOVE(e, env_sched_link);
+                if (e->env_status == ENV_NOT_RUNNABLE) 
+                    LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link);
+            } 
+        } while (e && e->env_status != ENV_RUNNABLE);
+        count = e->env_pri;
     }
 
     assert(count > 0);

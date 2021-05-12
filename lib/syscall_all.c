@@ -119,6 +119,9 @@ int sys_set_pgfault_handler(int sysno, u_int envid, u_int func, u_int xstacktop)
 	struct Env *env;
 	int ret;
 
+	if (ret = envid2env(envid, &env, 0)) return ret;
+	env->env_pgfault_handler = func;
+	env->env_xstacktop = xstacktop;
 
 	return 0;
 	//	panic("sys_set_pgfault_handler not implemented");
@@ -182,11 +185,13 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva, u
 
     // your code here
 	if (srcva >= UTOP || dstva >= UTOP) return -E_INVAL;
-	if ((perm & PTE_COW) || !(perm & PTE_V)) return -E_INVAL;
+	if (!(perm & PTE_V)) return -E_INVAL;
 	if (ret = envid2env(srcid, &srcenv, 0)) return ret;
 	if (ret = envid2env(dstid, &dstenv, 0)) return ret;
 	ppage = page_lookup(srcenv->env_pgdir, round_srcva, &ppte);
 	if (ppage == 0) return -E_INVAL;
+	else if (ppte == NULL) return -E_INVAL;
+	else if (!(*ppte & PTE_V)) return -E_INVAL;
 	else if (!(*ppte & PTE_R) && (perm & PTE_R)) return -E_INVAL;
 	ret = page_insert(dstenv->env_pgdir, ppage, round_dstva, perm);
 
@@ -208,6 +213,7 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
 	// Your code here.
 	int ret = 0;
 	struct Env *env;
+
 	if (va >= UTOP) return -E_INVAL;
 	if (ret = envid2env(envid, &env, 0)) return ret;
 	page_remove(env->env_pgdir, ROUNDDOWN(va, BY2PG));
@@ -233,13 +239,13 @@ int sys_env_alloc(void)
 	// Your code here.
 	int r;
 	struct Env *e;
-	if (r = env_alloc(&e, curenv->env_id)) return r;
-	bcopy(KERNEL_SP - sizeof(struct Trapframe), &(e->env_tf), sizeof(struct Trapframe));
 
-	e->env_status = ENV_NOT_RUNNABLE;
-	e->env_tf.pc = e->env_tf.cp0_epc;
-	e->env_pri = curenv->env_pri;
-	e->env_tf.regs[2] = 0;
+	if (r = env_alloc(&e, curenv->env_id)) return r;
+	bcopy(KERNEL_SP - sizeof(struct Trapframe), &(e->env_tf), sizeof(struct Trapframe)); // copy the registers
+	e->env_tf.pc = e->env_tf.cp0_epc; // adjust the pc
+	e->env_tf.regs[2] = 0; // son return 0
+	e->env_status = ENV_NOT_RUNNABLE; // don't schedule
+	e->env_pri = curenv->env_pri; // copy the pri
 
 	return e->env_id;
 	//	panic("sys_env_alloc not implemented");
@@ -263,15 +269,24 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	// Your code here.
 	struct Env *env;
 	int ret;
-	if (status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE && status != ENV_FREE) return -E_INVAL;
-	if (ret = envid2env(envid, &env)) return ret;
-	env->env_status = status;
 
-	if (status == ENV_RUNNABLE) LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
-	else if (status == ENV_FREE) {
+	if (status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE && status != ENV_FREE) return -E_INVAL;
+	if (ret = envid2env(envid, &env, 0)) return ret;
+
+	if (status == ENV_FREE) {
 		env_destroy(env);
 		LIST_REMOVE(env, env_sched_link);
+	} else if (env->env_status != ENV_RUNNABLE && status == ENV_RUNNABLE) {
+		LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
+		env->env_status = status;
+	} else if (env->env_status == ENV_RUNNABLE && status != ENV_RUNNABLE) {
+		LIST_REMOVE(env, env_sched_link);
+		LIST_INSERT_TAIL(&env_sched_list[0], env, env_sched_link);
+		env->env_status = status;
 	}
+	// if (env->env_status != ENV_RUNNABLE && status == ENV_RUNNABLE) LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
+	// if (env->env_status == ENV_RUNNABLE && status != ENV_RUNNABLE) LIST_REMOVE(env, env_sched_link);
+	// env->env_status = status;
 
 	return 0;
 	//	panic("sys_env_set_status not implemented");
@@ -358,17 +373,17 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva, u_int per
 	struct Page *p;
 
 	if (srcva >= UTOP) return -E_INVAL;
-	if (r = envid2env(envid, &e, 1)) return r;
+	if (r = envid2env(envid, &e, 0)) return r;
 	if (!e->env_ipc_recving) return -E_IPC_NOT_RECV;
 
 	if (srcva) {
 		Pte *ppte;
 		p = page_lookup(curenv->env_pgdir, ROUNDDOWN(srcva, BY2PG), &ppte);
-		if (p == 0 || !(*ppte & PTE_V)) return -E_INVAL;
-		if (r = page_insert(e->env_pgdir, p, ROUNDDOWN(e->env_ipc_dstva, BY2PG), perm)) return r;
-		e->env_ipc_perm = perm;
+		if ((p == 0) || e->env_ipc_dstva >= UTOP || !(*ppte & PTE_V)) return -E_INVAL;
+		if (r = page_insert(e->env_pgdir, p, ROUNDDOWN(e->env_ipc_dstva, BY2PG), perm) < 0) return r;
 	}
 
+	e->env_ipc_perm = perm;
 	e->env_ipc_recving = 0;
 	e->env_ipc_from = curenv->env_id;
 	e->env_ipc_value = value;

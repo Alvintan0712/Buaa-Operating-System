@@ -3,8 +3,7 @@
 
 #include "lib.h"
 
-void
-umain(void)
+void umain(void)
 {
 	u_int who, i;
 
