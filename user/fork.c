@@ -121,7 +121,7 @@ static void duppage(u_int envid, u_int pn)
 
 	if ((perm & PTE_R) && !(perm & PTE_LIBRARY)) {
 		syscall_mem_map(0, addr, envid, addr, perm | PTE_COW);
-		syscall_mem_map(0, addr, envid, 0, perm | PTE_COW);
+		syscall_mem_map(0, addr, 0, addr, perm | PTE_COW);
 	} else {
 		syscall_mem_map(0, addr, envid, addr, perm);
 	}
