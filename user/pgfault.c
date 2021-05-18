@@ -15,7 +15,8 @@ extern void __asm_pgfault_handler(void);
 // allocate an exception stack and tell the kernel to
 // call _asm_pgfault_handler on it.
 //
-void set_pgfault_handler(void (*fn)(u_int va))
+void
+set_pgfault_handler(void (*fn)(u_int va))
 {
 	if (__pgfault_handler == 0) {
 		// Your code here:
@@ -27,7 +28,7 @@ void set_pgfault_handler(void (*fn)(u_int va))
 			return;
 		}
 
-		// panic("set_pgfault_handler not implemented");
+		//		panic("set_pgfault_handler not implemented");
 	}
 
 	// Save handler pointer for assembly to call.

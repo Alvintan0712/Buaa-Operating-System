@@ -11,7 +11,8 @@ extern struct Env *env;
 // -E_IPC_NOT_RECV.
 //
 // Hint: use syscall_yield() to be CPU-friendly.
-void ipc_send(u_int whom, u_int val, u_int srcva, u_int perm)
+void
+ipc_send(u_int whom, u_int val, u_int srcva, u_int perm)
 {
 	int r;
 
@@ -31,7 +32,8 @@ void ipc_send(u_int whom, u_int val, u_int srcva, u_int perm)
 // in *whom.
 //
 // Hint: use env to discover the value and who sent it.
-u_int ipc_recv(u_int *whom, u_int dstva, u_int *perm)
+u_int
+ipc_recv(u_int *whom, u_int dstva, u_int *perm)
 {
 	//printf("ipc_recv:come 0\n");
 	syscall_ipc_recv(dstva);
