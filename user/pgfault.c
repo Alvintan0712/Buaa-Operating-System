@@ -7,16 +7,13 @@
 extern void (*__pgfault_handler)(u_int);
 extern void __asm_pgfault_handler(void);
 
-
-//
 // Set the page fault handler function.
 // If there isn't one yet, _pgfault_handler will be 0.
 // The first time we register a handler, we need to
 // allocate an exception stack and tell the kernel to
 // call _asm_pgfault_handler on it.
 //
-void
-set_pgfault_handler(void (*fn)(u_int va))
+void set_pgfault_handler(void (*fn)(u_int va))
 {
 	if (__pgfault_handler == 0) {
 		// Your code here:
@@ -27,11 +24,9 @@ set_pgfault_handler(void (*fn)(u_int va))
 			writef("cannot set pgfault handler\n");
 			return;
 		}
-
-		//		panic("set_pgfault_handler not implemented");
+		// panic("set_pgfault_handler not implemented");
 	}
 
 	// Save handler pointer for assembly to call.
 	__pgfault_handler = fn;
 }
-

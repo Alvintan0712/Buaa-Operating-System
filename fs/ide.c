@@ -21,8 +21,7 @@
 // 	If error occurred during read the IDE disk, panic. 
 // 	
 // Hint: use syscalls to access device registers and buffers
-void
-ide_read(u_int diskno, u_int secno, void *dst, u_int nsecs)
+void ide_read(u_int diskno, u_int secno, void *dst, u_int nsecs)
 {
 	// 0x200: the size of a sector: 512 bytes.
 	int offset_begin = secno * 0x200;
@@ -30,8 +29,8 @@ ide_read(u_int diskno, u_int secno, void *dst, u_int nsecs)
 	int offset = 0;
 
 	while (offset_begin + offset < offset_end) {
-            // Your code here
-            // error occurred, then panic.
+        // Your code here
+        // error occurred, then panic.
 	}
 }
 
@@ -49,10 +48,9 @@ ide_read(u_int diskno, u_int secno, void *dst, u_int nsecs)
 //	If error occurred during read the IDE disk, panic.
 //	
 // Hint: use syscalls to access device registers and buffers
-void
-ide_write(u_int diskno, u_int secno, void *src, u_int nsecs)
+void ide_write(u_int diskno, u_int secno, void *src, u_int nsecs)
 {
-        // Your code here
+    // Your code here
 	// int offset_begin = ;
 	// int offset_end = ;
 	// int offset = ;
@@ -63,7 +61,7 @@ ide_write(u_int diskno, u_int secno, void *src, u_int nsecs)
 	// while ( < ) {
 	    // copy data from source array to disk buffer.
 
-            // if error occur, then panic.
+		// if error occur, then panic.
 	// }
 }
 

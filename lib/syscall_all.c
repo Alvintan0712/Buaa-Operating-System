@@ -248,7 +248,7 @@ int sys_env_alloc(void)
 	e->env_pri = curenv->env_pri; // copy the pri
 
 	return e->env_id;
-	//	panic("sys_env_alloc not implemented");
+	// panic("sys_env_alloc not implemented");
 }
 
 /* Overview:
@@ -284,9 +284,6 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 		LIST_INSERT_TAIL(&env_sched_list[0], env, env_sched_link);
 		env->env_status = status;
 	}
-	// if (env->env_status != ENV_RUNNABLE && status == ENV_RUNNABLE) LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
-	// if (env->env_status == ENV_RUNNABLE && status != ENV_RUNNABLE) LIST_REMOVE(env, env_sched_link);
-	// env->env_status = status;
 
 	return 0;
 	//	panic("sys_env_set_status not implemented");
@@ -391,6 +388,7 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva, u_int per
 
 	return 0;
 }
+
 /* Overview:
  * 	This function is used to write data to device, which is
  * 	represented by its mapped physical address.
@@ -418,7 +416,13 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva, u_int per
  */
 int sys_write_dev(int sysno, u_int va, u_int dev, u_int len)
 {
-        // Your code here
+	// Your code here
+	if (0x10000000 <= dev && dev + len <= 0x10000020 || 
+		0x13000000 <= dev && dev + len <= 0x13004200 || 
+		0x15000000 <= dev && dev + len <= 0x15000200) 
+		return -E_INVAL;
+	bcopy(va, dev + 0xa0000000, len);
+	return 0;
 }
 
 /* Overview:
@@ -439,5 +443,11 @@ int sys_write_dev(int sysno, u_int va, u_int dev, u_int len)
  */
 int sys_read_dev(int sysno, u_int va, u_int dev, u_int len)
 {
-        // Your code here
+	// Your code here
+	if (0x10000000 <= dev && dev + len <= 0x10000020 || 
+		0x13000000 <= dev && dev + len <= 0x13004200 || 
+		0x15000000 <= dev && dev + len <= 0x15000200) 
+		return -E_INVAL;
+	bcopy(dev + 0xa0000000, va, len);
+	return 0;
 }

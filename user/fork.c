@@ -148,9 +148,9 @@ int fork(void)
 	u_int i;
 	int r;
 
-	//The parent installs pgfault using set_pgfault_handler
+	// The parent installs pgfault using set_pgfault_handler
 	set_pgfault_handler(pgfault);
-	//alloc a new alloc
+	// alloc a new alloc
 	newenvid = syscall_env_alloc();
 	if (newenvid > 0) {
 		for (i = 0; i < VPN(USTACKTOP); i++) 

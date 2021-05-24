@@ -12,24 +12,21 @@ int block_is_free(u_int);
 // Overview:
 //	Return the virtual address of this disk block. If the `blockno` is greater
 //	than disk's nblocks, panic.
-u_int
-diskaddr(u_int blockno)
+u_int diskaddr(u_int blockno)
 {
 
 }
 
 // Overview:
 //	Check if this virtual address is mapped to a block. (check PTE_V bit)
-u_int
-va_is_mapped(u_int va)
+u_int va_is_mapped(u_int va)
 {
 	return (((*vpd)[PDX(va)] & (PTE_V)) && ((*vpt)[VPN(va)] & (PTE_V)));
 }
 
 // Overview:
 //	Check if this disk block is mapped to a vitrual memory address. (check corresponding `va`)
-u_int
-block_is_mapped(u_int blockno)
+u_int block_is_mapped(u_int blockno)
 {
 	u_int va = diskaddr(blockno);
 	if (va_is_mapped(va)) {
@@ -40,16 +37,14 @@ block_is_mapped(u_int blockno)
 
 // Overview:
 //	Check if this virtual address is dirty. (check PTE_D bit)
-u_int
-va_is_dirty(u_int va)
+u_int va_is_dirty(u_int va)
 {
 	return (* vpt)[VPN(va)] & PTE_D;
 }
 
 // Overview:
 //	Check if this block is dirty. (check corresponding `va`)
-u_int
-block_is_dirty(u_int blockno)
+u_int block_is_dirty(u_int blockno)
 {
 	u_int va = diskaddr(blockno);
 	return va_is_mapped(va) && va_is_dirty(va);
@@ -62,8 +57,7 @@ block_is_dirty(u_int blockno)
 //	If this block is already mapped to a virtual address(use `block_is_mapped`), 
 // 	then return 0, indicate success, else alloc a page for this `va` address, 
 //	and return the result(success or fail) of `syscall_mem_alloc`.
-int
-map_block(u_int blockno)
+int map_block(u_int blockno)
 {
 	// Step 1: Decide whether this block has already mapped to a page of physical memory.
 
@@ -72,8 +66,7 @@ map_block(u_int blockno)
 
 // Overview:
 //	Unmap a block.
-void
-unmap_block(u_int blockno)
+void unmap_block(u_int blockno)
 {
 	int r;
 
@@ -104,8 +97,7 @@ unmap_block(u_int blockno)
 //
 // Hint:
 //	use diskaddr, block_is_mapped, syscall_mem_alloc, and ide_read.
-int
-read_block(u_int blockno, void **blk, u_int *isnew)
+int read_block(u_int blockno, void **blk, u_int *isnew)
 {
 	u_int va;
 
@@ -151,8 +143,7 @@ read_block(u_int blockno, void **blk, u_int *isnew)
 
 // Overview:
 //	Wirte the current contents of the block out to disk.
-void
-write_block(u_int blockno)
+void write_block(u_int blockno)
 {
 	u_int va;
 	
@@ -173,8 +164,7 @@ write_block(u_int blockno)
 // 
 // Post-Condition:
 //	Return 1 if the block is free, else 0.
-int
-block_is_free(u_int blockno)
+int block_is_free(u_int blockno)
 {
 	if (super == 0 || blockno >= super->s_nblocks) {
 		return 0;
@@ -189,11 +179,10 @@ block_is_free(u_int blockno)
 
 // Overview:
 //	Mark a block as free in the bitmap.
-void
-free_block(u_int blockno)
+void free_block(u_int blockno)
 {
 	// Step 1: Check if the parameter `blockno` is valid (`blockno` can't be zero).
-
+	if (blockno == 0) return;
 	// Step 2: Update the flag bit in bitmap.
 	// you can use bit operation to update flags, such as  a |= (1 << n) .
 }
@@ -204,8 +193,7 @@ free_block(u_int blockno)
 // Post-Condition:
 //	Return block number allocated on success,
 //		   -E_NO_DISK if we are out of blocks.
-int
-alloc_block_num(void)
+int alloc_block_num(void)
 {
 	int blockno;
 	// walk through this bitmap, find a free one and mark it as used, then sync
@@ -223,8 +211,7 @@ alloc_block_num(void)
 
 // Overview:
 //	Allocate a block -- first find a free block in the bitmap, then map it into memory.
-int
-alloc_block(void)
+int alloc_block(void)
 {
 	int r, bno;
 	// Step 1: find a free block.
@@ -248,8 +235,7 @@ alloc_block(void)
 //
 // Post-condition:
 //	If error occurred during read super block or validate failed, panic.
-void
-read_super(void)
+void read_super(void)
 {
 	int r;
 	void *blk;
@@ -281,8 +267,7 @@ read_super(void)
 // 	Read all the bitmap blocks into memory.
 // 	Set the "bitmap" pointer to point ablocknot the beginning of the first bitmap block.
 //	For each block i, user_assert(!block_is_free(i))).Check that they're all marked as inuse 
-void
-read_bitmap(void)
+void read_bitmap(void)
 {
 	u_int i;
 	void *blk = NULL;
@@ -311,8 +296,7 @@ read_bitmap(void)
 
 // Overview:
 //	Test that write_block works, by smashing the superblock and reading it back.
-void
-check_write_block(void)
+void check_write_block(void)
 {
 	super = 0;
 
@@ -346,8 +330,7 @@ check_write_block(void)
 //	1. read super block.
 //	2. check if the disk can work.
 //	3. read bitmap blocks from disk to memory.
-void
-fs_init(void)
+void fs_init(void)
 {
 	read_super();
 	check_write_block();
@@ -368,8 +351,7 @@ fs_init(void)
 //		-E_NO_DISK if there's no space on the disk for an indirect block.
 //		-E_NO_MEM if there's no space in memory for an indirect block.
 //		-E_INVAL if filebno is out of range (it's >= NINDIRECT).
-int
-file_block_walk(struct File *f, u_int filebno, u_int **ppdiskbno, u_int alloc)
+int file_block_walk(struct File *f, u_int filebno, u_int **ppdiskbno, u_int alloc)
 {
 	int r;
 	u_int *ptr;
@@ -418,8 +400,7 @@ file_block_walk(struct File *f, u_int filebno, u_int **ppdiskbno, u_int alloc)
 //		-E_NO_DISK: if a block needed to be allocated but the disk is full.
 //		-E_NO_MEM: if we're out of memory.
 //		-E_INVAL: if filebno is out of range.
-int
-file_map_block(struct File *f, u_int filebno, u_int *diskbno, u_int alloc)
+int file_map_block(struct File *f, u_int filebno, u_int *diskbno, u_int alloc)
 {
 	int r;
 	u_int *ptr;
@@ -448,8 +429,7 @@ file_map_block(struct File *f, u_int filebno, u_int *diskbno, u_int alloc)
 
 // Overview:
 //	Remove a block from file f.  If it's not there, just silently succeed.
-int
-file_clear_block(struct File *f, u_int filebno)
+int file_clear_block(struct File *f, u_int filebno)
 {
 	int r;
 	u_int *ptr;
@@ -473,8 +453,7 @@ file_clear_block(struct File *f, u_int filebno)
 //
 // Post-Condition:
 //	return 0 on success, and read the data to `blk`, return <0 on error.
-int
-file_get_block(struct File *f, u_int filebno, void **blk)
+int file_get_block(struct File *f, u_int filebno, void **blk)
 {
 	int r;
 	u_int diskbno;
@@ -494,8 +473,7 @@ file_get_block(struct File *f, u_int filebno, void **blk)
 
 // Overview:
 //	Mark the offset/BY2BLK'th block dirty in file f by writing its first word to itself.
-int
-file_dirty(struct File *f, u_int offset)
+int file_dirty(struct File *f, u_int offset)
 {
 	int r;
 	void *blk;
@@ -514,8 +492,7 @@ file_dirty(struct File *f, u_int offset)
 // Post-Condition:
 //	return 0 on success, and set the pointer to the target file in `*file`.
 //		< 0 on error.
-int
-dir_lookup(struct File *dir, char *name, struct File **file)
+int dir_lookup(struct File *dir, char *name, struct File **file)
 {
 	int r;
 	u_int i, j, nblock;
@@ -541,8 +518,7 @@ dir_lookup(struct File *dir, char *name, struct File **file)
 // Overview:
 //	Alloc a new File structure under specified directory. Set *file 
 //	to point at a free File structure in dir.
-int
-dir_alloc_file(struct File *dir, struct File **file)
+int dir_alloc_file(struct File *dir, struct File **file)
 {
 	int r;
 	u_int nblock, i , j;
@@ -581,8 +557,7 @@ dir_alloc_file(struct File *dir, struct File **file)
 
 // Overview:
 //	Skip over slashes.
-char *
-skip_slash(char *p)
+char *skip_slash(char *p)
 {
 	while (*p == '/') {
 		p++;
@@ -598,8 +573,7 @@ skip_slash(char *p)
 //	the file is in.
 //	If we cannot find the file but find the directory it should be in, set 
 //	*pdir and copy the final path element into lastelem.
-int
-walk_path(char *path, struct File **pdir, struct File **pfile, char *lastelem)
+int walk_path(char *path, struct File **pdir, struct File **pfile, char *lastelem)
 {
 	char *p;
 	char name[MAXNAMELEN];
@@ -670,8 +644,7 @@ walk_path(char *path, struct File **pdir, struct File **pfile, char *lastelem)
 // Post-Condition:
 //	On success set *pfile to point at the file and return 0.
 //	On error return < 0.
-int
-file_open(char *path, struct File **file)
+int file_open(char *path, struct File **file)
 {
 	return walk_path(path, 0, file, 0);
 }
@@ -682,8 +655,7 @@ file_open(char *path, struct File **file)
 // Post-Condition:
 //	On success set *file to point at the file and return 0.
 // 	On error return < 0.
-int
-file_create(char *path, struct File **file)
+int file_create(char *path, struct File **file)
 {
 	char name[MAXNAMELEN];
 	int r;
@@ -717,8 +689,7 @@ file_create(char *path, struct File **file)
 //	(Remember to clear the f->f_indirect pointer so you'll know whether it's valid!)
 //
 // Hint: use file_clear_block.
-void
-file_truncate(struct File *f, u_int newsize)
+void file_truncate(struct File *f, u_int newsize)
 {
 	u_int bno, old_nblocks, new_nblocks;
 
@@ -745,8 +716,7 @@ file_truncate(struct File *f, u_int newsize)
 
 // Overview:
 //	Set file size to newsize.
-int
-file_set_size(struct File *f, u_int newsize)
+int file_set_size(struct File *f, u_int newsize)
 {
 	if (f->f_size > newsize) {
 		file_truncate(f, newsize);
@@ -768,8 +738,7 @@ file_set_size(struct File *f, u_int newsize)
 //	check whether that disk block is dirty.  If so, write it out.
 //
 // Hint: use file_map_block, block_is_dirty, and write_block.
-void
-file_flush(struct File *f)
+void file_flush(struct File *f)
 {
 	// Your code here
 	u_int nblocks;
@@ -791,8 +760,7 @@ file_flush(struct File *f)
 
 // Overview:
 //	Sync the entire file system.  A big hammer.
-void
-fs_sync(void)
+void fs_sync(void)
 {
 	int i;
 	for (i = 0; i < super->s_nblocks; i++) {
@@ -804,8 +772,7 @@ fs_sync(void)
 
 // Overview:
 //	Close a file.
-void
-file_close(struct File *f)
+void file_close(struct File *f)
 {
 	// Flush the file itself, if f's f_dir is set, flush it's f_dir.
 	file_flush(f);
@@ -816,8 +783,7 @@ file_close(struct File *f)
 
 // Overview:
 //	Remove a file by truncating it and then zeroing the name.
-int
-file_remove(char *path)
+int file_remove(char *path)
 {
 	int r;
 	struct File *f;
