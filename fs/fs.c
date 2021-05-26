@@ -74,7 +74,7 @@ void unmap_block(u_int blockno)
 	u_int va;
 
 	// Step 1: check if this block is mapped.
-	if (!(va = block_is_map(blockno))) return; 
+	if (!(va = block_is_mapped(blockno))) return; 
 	// Step 2: use block_is_free，block_is_dirty to check block , 
 	//if this block is used(not free) and dirty, it needs to be synced to disk: write_block
 	//can't be unmap directly.
@@ -149,7 +149,7 @@ int read_block(u_int blockno, void **blk, u_int *isnew)
 void write_block(u_int blockno)
 {
 	u_int va;
-	
+
 	// Step 1: detect is this block is mapped, if not, can't write it's data to disk.
 	if (!block_is_mapped(blockno)) {
 		user_panic("write unmapped block %08x", blockno);
@@ -513,7 +513,7 @@ int dir_lookup(struct File *dir, char *name, struct File **file)
 		// Step 3: Find target file by file name in all files on this block.
 		// If we find the target file, set the result to *file and set f_dir field.
 		for (j = 0; j < FILE2BLK; j++) {
-			f = (struct File *) blk + j;
+			f = ((struct File *) blk) + j;
 			if (strcmp(f->f_name, name) == 0) {
 				*file = f;
 				f->f_dir = dir;

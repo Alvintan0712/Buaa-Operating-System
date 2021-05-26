@@ -37,7 +37,7 @@ void ide_read(u_int diskno, u_int secno, void *dst, u_int nsecs)
 		u_int enable = 0;
 		u_int status;
 
-		if (syscall_write_dev(&tmp, base, 4))) user_panic("read IDE disk error");
+		if (syscall_write_dev(&tmp, base, 4)) user_panic("read IDE disk error");
 		if (syscall_write_dev(&dev_id, base + 0x0010, 4)) user_panic("read IDE disk error");
 		if (syscall_write_dev(&enable, base + 0x0020, 4)) user_panic("read IDE disk error");
 		if (syscall_read_dev(&status, base + 0x0030, 4)) user_panic("read IDE disk error");
@@ -82,7 +82,7 @@ void ide_write(u_int diskno, u_int secno, void *src, u_int nsecs)
 		u_int status;
 
 		if (syscall_write_dev(src + offset, base + 0x4000, 0x200)) user_panic("write IDE disk error");
-		if (syscall_write_dev(&tmp, base, 4))) user_panic("write IDE disk error");
+		if (syscall_write_dev(&tmp, base, 4)) user_panic("write IDE disk error");
 		if (syscall_write_dev(&dev_id, base + 0x0010, 4)) user_panic("write IDE disk error");
 		if (syscall_write_dev(&enable, base + 0x0020, 4)) user_panic("write IDE disk error");
 		if (syscall_read_dev(&status, base + 0x0030, 4)) user_panic("write IDE disk error");

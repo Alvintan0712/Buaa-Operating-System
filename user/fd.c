@@ -26,8 +26,7 @@ dev_lookup(int dev_id, struct Dev **dev)
 	return -E_INVAL;
 }
 
-int
-fd_alloc(struct Fd **fd)
+int fd_alloc(struct Fd **fd)
 {
 	// Find the smallest i from 0 to MAXFD-1 that doesn't have
 	// its fd page mapped.  Set *fd to the fd page virtual address.
@@ -56,14 +55,12 @@ fd_alloc(struct Fd **fd)
 	return -E_MAX_OPEN;
 }
 
-void
-fd_close(struct Fd *fd)
+void fd_close(struct Fd *fd)
 {
 	syscall_mem_unmap(0, (u_int)fd);
 }
 
-int
-fd_lookup(int fdnum, struct Fd **fd)
+int fd_lookup(int fdnum, struct Fd **fd)
 {
 	// Check that fdnum is in range and mapped.  If not, return -E_INVAL.
 	// Set *fd to the fd page virtual address.  Return 0.
@@ -83,26 +80,22 @@ fd_lookup(int fdnum, struct Fd **fd)
 	return -E_INVAL;
 }
 
-u_int
-fd2data(struct Fd *fd)
+u_int fd2data(struct Fd *fd)
 {
 	return INDEX2DATA(fd2num(fd));
 }
 
-int
-fd2num(struct Fd *fd)
+int fd2num(struct Fd *fd)
 {
 	return ((u_int)fd - FDTABLE) / BY2PG;
 }
 
-int
-num2fd(int fd)
+int num2fd(int fd)
 {
 	return fd * BY2PG + FDTABLE;
 }
 
-int
-close(int fdnum)
+int close(int fdnum)
 {
 	int r;
 	struct Dev *dev;
@@ -118,8 +111,7 @@ close(int fdnum)
 	return r;
 }
 
-void
-close_all(void)
+void close_all(void)
 {
 	int i;
 
@@ -128,8 +120,7 @@ close_all(void)
 	}
 }
 
-int
-dup(int oldfdnum, int newfdnum)
+int dup(int oldfdnum, int newfdnum)
 {
 	int i, r;
 	u_int ova, nva, pte;
@@ -182,8 +173,7 @@ err:
 //	Update seek position.
 //	Return the number of bytes read successfully.
 //		< 0 on error
-int
-read(int fdnum, void *buf, u_int n)
+int read(int fdnum, void *buf, u_int n)
 {
 	int r;
 	struct Dev *dev;
@@ -201,8 +191,7 @@ read(int fdnum, void *buf, u_int n)
 	return r;
 }
 
-int
-readn(int fdnum, void *buf, u_int n)
+int readn(int fdnum, void *buf, u_int n)
 {
 	int m, tot;
 
@@ -221,8 +210,7 @@ readn(int fdnum, void *buf, u_int n)
 	return tot;
 }
 
-int
-write(int fdnum, const void *buf, u_int n)
+int write(int fdnum, const void *buf, u_int n)
 {
 	int r;
 	struct Dev *dev;
@@ -250,8 +238,7 @@ write(int fdnum, const void *buf, u_int n)
 	return r;
 }
 
-int
-seek(int fdnum, u_int offset)
+int seek(int fdnum, u_int offset)
 {
 	int r;
 	struct Fd *fd;
@@ -283,8 +270,7 @@ int fstat(int fdnum, struct Stat *stat)
 	return (*dev->dev_stat)(fd, stat);
 }
 
-int
-stat(const char *path, struct Stat *stat)
+int stat(const char *path, struct Stat *stat)
 {
 	int fd, r;
 
