@@ -12,12 +12,12 @@ static int file_stat(struct Fd *fd, struct Stat *stat);
 // Dot represents choosing the variable of the same name within struct declaration 
 // to assign, and no need to consider order of variables.
 struct Dev devfile = {
-	.dev_id =	'f',
-	.dev_name =	"file",
-	.dev_read =	file_read,
-	.dev_write =	file_write,
-	.dev_close =	file_close,
-	.dev_stat =	file_stat,
+	.dev_id 	=	'f',
+	.dev_name 	=	"file",
+	.dev_read 	=	file_read,
+	.dev_write 	=	file_write,
+	.dev_close 	=	file_close,
+	.dev_stat 	=	file_stat,
 };
 
 
@@ -27,8 +27,7 @@ struct Dev devfile = {
 // Returns:
 //	the file descriptor onsuccess,
 //	< 0 on failure.
-int
-open(const char *path, int mode)
+int open(const char *path, int mode)
 {
 	struct Fd *fd;
 	struct Filefd *ffd;
@@ -39,7 +38,7 @@ open(const char *path, int mode)
 
 	// Step 1: Alloc a new Fd, return error code when fail to alloc.
 	// Hint: Please use fd_alloc.
-
+	
 
 	// Step 2: Get the file descriptor of the file to open.
 	// Hint: Read fsipc.c, and choose a function.

@@ -27,8 +27,7 @@ struct Open opentab[MAXOPEN] = { { 0, 0, 1 } };
 
 // Overview:
 //	Initialize file system server process.
-void
-serve_init(void)
+void serve_init(void)
 {
 	int i;
 	u_int va;
@@ -46,8 +45,7 @@ serve_init(void)
 
 // Overview:
 //	Allocate an open file.
-int
-open_alloc(struct Open **o)
+int open_alloc(struct Open **o)
 {
 	int i, r;
 
@@ -72,8 +70,7 @@ open_alloc(struct Open **o)
 
 // Overview:
 //	Look up an open file for envid.
-int
-open_lookup(u_int envid, u_int fileid, struct Open **po)
+int open_lookup(u_int envid, u_int fileid, struct Open **po)
 {
 	struct Open *o;
 
@@ -91,8 +88,7 @@ open_lookup(u_int envid, u_int fileid, struct Open **po)
 // To send a result back, ipc_send(envid, r, 0, 0).
 // To include a page, ipc_send(envid, r, srcva, perm).
 
-void
-serve_open(u_int envid, struct Fsreq_open *rq)
+void serve_open(u_int envid, struct Fsreq_open *rq)
 {
 	writef("serve_open %08x %x 0x%x\n", envid, (int)rq->req_path, rq->req_omode);
 
@@ -136,8 +132,7 @@ serve_open(u_int envid, struct Fsreq_open *rq)
 	ipc_send(envid, 0, (u_int)o->o_ff, PTE_V | PTE_R | PTE_LIBRARY);
 }
 
-void
-serve_map(u_int envid, struct Fsreq_map *rq)
+void serve_map(u_int envid, struct Fsreq_map *rq)
 {
 
 	struct Open *pOpen;
@@ -163,8 +158,7 @@ serve_map(u_int envid, struct Fsreq_map *rq)
 	ipc_send(envid, 0, (u_int)blk, PTE_V | PTE_R | PTE_LIBRARY);
 }
 
-void
-serve_set_size(u_int envid, struct Fsreq_set_size *rq)
+void serve_set_size(u_int envid, struct Fsreq_set_size *rq)
 {
 	struct Open *pOpen;
 	int r;
@@ -181,8 +175,7 @@ serve_set_size(u_int envid, struct Fsreq_set_size *rq)
 	ipc_send(envid, 0, 0, 0);
 }
 
-void
-serve_close(u_int envid, struct Fsreq_close *rq)
+void serve_close(u_int envid, struct Fsreq_close *rq)
 {
 	struct Open *pOpen;
 
@@ -199,8 +192,7 @@ serve_close(u_int envid, struct Fsreq_close *rq)
 
 // Overview:
 //	fs service used to delete a file according path in `rq`.
-void
-serve_remove(u_int envid, struct Fsreq_remove *rq)
+void serve_remove(u_int envid, struct Fsreq_remove *rq)
 {
 	int r;
 	u_char path[MAXPATHLEN];
@@ -212,8 +204,7 @@ serve_remove(u_int envid, struct Fsreq_remove *rq)
 	// Call file_remove and ipc_send an approprite value to corresponding env.
 }
 
-void
-serve_dirty(u_int envid, struct Fsreq_dirty *rq)
+void serve_dirty(u_int envid, struct Fsreq_dirty *rq)
 {
 
 	// Your code here
@@ -233,15 +224,13 @@ serve_dirty(u_int envid, struct Fsreq_dirty *rq)
 	ipc_send(envid, 0, 0, 0);
 }
 
-void
-serve_sync(u_int envid)
+void serve_sync(u_int envid)
 {
 	fs_sync();
 	ipc_send(envid, 0, 0, 0);
 }
 
-void
-serve(void)
+void serve(void)
 {
 	u_int req, whom, perm;
 
@@ -295,8 +284,7 @@ serve(void)
 	}
 }
 
-void
-umain(void)
+void umain(void)
 {
 	user_assert(sizeof(struct File) == BY2FILE);
 

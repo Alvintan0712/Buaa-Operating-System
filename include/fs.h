@@ -27,12 +27,12 @@
 
 struct File {
 	u_char f_name[MAXNAMELEN];	// filename
-	u_int f_size;			// file size in bytes
-	u_int f_type;			// file type
+	u_int f_size;				// file size in bytes
+	u_int f_type;				// file type
 	u_int f_direct[NDIRECT];
 	u_int f_indirect;
 
-	struct File *f_dir;		// the pointer to the dir where this file is in, valid only in memory.
+	struct File *f_dir;			// the pointer to the dir where this file is in, valid only in memory.
 	u_char f_pad[BY2FILE - MAXNAMELEN - 4 - 4 - NDIRECT * 4 - 4 - 4];
 };
 
