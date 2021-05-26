@@ -38,7 +38,7 @@ int open(const char *path, int mode)
 
 	// Step 1: Alloc a new Fd, return error code when fail to alloc.
 	// Hint: Please use fd_alloc.
-	
+
 
 	// Step 2: Get the file descriptor of the file to open.
 	// Hint: Read fsipc.c, and choose a function.
@@ -58,8 +58,7 @@ int open(const char *path, int mode)
 
 // Overview:
 //	Close a file descriptor
-int
-file_close(struct Fd *fd)
+int file_close(struct Fd *fd)
 {
 	int r;
 	struct Filefd *ffd;
@@ -101,8 +100,7 @@ file_close(struct Fd *fd)
 //	Read 'n' bytes from 'fd' at the current seek position into 'buf'. Since files
 //	are memory-mapped, this amounts to a user_bcopy() surrounded by a little red
 //	tape to handle the file size and seek pointer.
-static int
-file_read(struct Fd *fd, void *buf, u_int n, u_int offset)
+static int file_read(struct Fd *fd, void *buf, u_int n, u_int offset)
 {
 	u_int size;
 	struct Filefd *f;
@@ -126,8 +124,7 @@ file_read(struct Fd *fd, void *buf, u_int n, u_int offset)
 // Overview:
 //	Find the virtual address of the page that maps the file block
 //	starting at 'offset'.
-int
-read_map(int fdnum, u_int offset, void **blk)
+int read_map(int fdnum, u_int offset, void **blk)
 {
 	int r;
 	u_int va;
@@ -157,8 +154,7 @@ read_map(int fdnum, u_int offset, void **blk)
 
 // Overview:
 //	Write 'n' bytes from 'buf' to 'fd' at the current seek position.
-static int
-file_write(struct Fd *fd, const void *buf, u_int n, u_int offset)
+static int file_write(struct Fd *fd, const void *buf, u_int n, u_int offset)
 {
 	int r;
 	u_int tot;
@@ -185,8 +181,7 @@ file_write(struct Fd *fd, const void *buf, u_int n, u_int offset)
 	return n;
 }
 
-static int
-file_stat(struct Fd *fd, struct Stat *st)
+static int file_stat(struct Fd *fd, struct Stat *st)
 {
 	struct Filefd *f;
 
@@ -200,8 +195,7 @@ file_stat(struct Fd *fd, struct Stat *st)
 
 // Overview:
 //	Truncate or extend an open file to 'size' bytes
-int
-ftruncate(int fdnum, u_int size)
+int ftruncate(int fdnum, u_int size)
 {
 	int i, r;
 	struct Fd *fd;
@@ -250,18 +244,16 @@ ftruncate(int fdnum, u_int size)
 
 // Overview:
 //	Delete a file or directory.
-int
-remove(const char *path)
+int remove(const char *path)
 {
 	// Your code here.
 	// Call fsipc_remove.
-	
+	return fsipc_remove(path);
 }
 
 // Overview:
 //	Synchronize disk with buffer cache
-int
-sync(void)
+int sync(void)
 {
 	return fsipc_sync();
 }
