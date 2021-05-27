@@ -11,8 +11,7 @@ static struct Dev *devtab[] = {
 	0
 };
 
-int
-dev_lookup(int dev_id, struct Dev **dev)
+int dev_lookup(int dev_id, struct Dev **dev)
 {
 	int i;
 
@@ -38,7 +37,7 @@ int fd_alloc(struct Fd **fd)
 	u_int va;
 	u_int fdno;
 
-	for (fdno = 0; fdno < MAXFD - 1; fdno++) {
+	for (fdno = 0; fdno < MAXFD; fdno++) {
 		va = INDEX2FD(fdno);
 
 		if (((* vpd)[va / PDMAP] & PTE_V) == 0) {
@@ -181,12 +180,21 @@ int read(int fdnum, void *buf, u_int n)
 
 	// Similar to 'write' function.
 	// Step 1: Get fd and dev.
+	if (r = fd_lookup(fdnum, &fd)) return r;
+	if (r = dev_lookup(fd->fd_dev_id, &dev)) return r;
 
 	// Step 2: Check open mode.
+	if ((fd->fd_omode & O_ACCMODE) == O_WRONLY) {
+		writef("[%08x] read %d -- bad mode\n", env->env_id, fdnum);
+		return -E_INVAL;
+	}
+	if (debug) writef("read %d %p %d via dev %s\n", fdnum, buf, n, dev->dev_name);
 
 	// Step 3: Read starting from seek position.
+	r = (*dev->dev_read)(fd, buf, n, fd->fd_offset);
 
 	// Step 4: Update seek position and set '\0' at the end of buf.
+	if (r > 0) fd->fd_offset += r;
 
 	return r;
 }

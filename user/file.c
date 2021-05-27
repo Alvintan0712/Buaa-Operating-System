@@ -46,14 +46,18 @@ int open(const char *path, int mode)
 
 	// Step 3: Set the start address storing the file's content. Set size and fileid correctly.
 	// Hint: Use fd2data to get the start address.
-	
+	ffd = (struct FileFd *) fd;
+	size = ffd->f_file.f_size;
+	fileid = ffd->f_fileid;
+	va = fd2data(fd);
 
 	// Step 4: Alloc memory, map the file content into memory.
-	
+	for (i = 0; i < size; i += BY2BLK) 
+		if (r = fsipc_map(fd->fd_dev_id, i, va + i)) 
+			return r;
 
 	// Step 5: Return the number of file descriptor.
-
-
+	return fd2num(fd);
 }
 
 // Overview:
