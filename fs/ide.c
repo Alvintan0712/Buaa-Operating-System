@@ -5,6 +5,7 @@
 #include "fs.h"
 #include "lib.h"
 #include <mmu.h>
+#include <printf.h>
 
 // Overview:
 // 	read data from IDE disk. First issue a read request through
