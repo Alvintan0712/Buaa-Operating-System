@@ -1,7 +1,6 @@
 #include "lib.h"
 
-void
-umain(void)
+void umain(void)
 {
 	int p[2], r, pid, i, max;
 	u_int va;

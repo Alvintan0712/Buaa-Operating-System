@@ -8,14 +8,13 @@ static int piperead(struct Fd *fd, void *buf, u_int n, u_int offset);
 static int pipestat(struct Fd*, struct Stat*);
 static int pipewrite(struct Fd *fd, const void *buf, u_int n, u_int offset);
 
-struct Dev devpipe =
-{
-.dev_id=	'p',
-.dev_name=	"pipe",
-.dev_read=	piperead,
-.dev_write=	pipewrite,
-.dev_close=	pipeclose,
-.dev_stat=	pipestat,
+struct Dev devpipe = {
+	.dev_id=	'p',
+	.dev_name=	"pipe",
+	.dev_read=	piperead,
+	.dev_write=	pipewrite,
+	.dev_close=	pipeclose,
+	.dev_stat=	pipestat,
 };
 
 #define BY2PIPE 32		// small to provoke races
@@ -26,19 +25,18 @@ struct Pipe {
 	u_char p_buf[BY2PIPE];	// data buffer
 };
 
-int
-pipe(int pfd[2])
+int pipe(int pfd[2])
 {
 	int r, va;
 	struct Fd *fd0, *fd1;
 
 	// allocate the file descriptor table entries
-	if ((r = fd_alloc(&fd0)) < 0
-	||  (r = syscall_mem_alloc(0, (u_int)fd0, PTE_V|PTE_R|PTE_LIBRARY)) < 0)
+	if ((r = fd_alloc(&fd0)) < 0 || 
+		(r = syscall_mem_alloc(0, (u_int)fd0, PTE_V|PTE_R|PTE_LIBRARY)) < 0)
 		goto err;
 
-	if ((r = fd_alloc(&fd1)) < 0
-	||  (r = syscall_mem_alloc(0, (u_int)fd1, PTE_V|PTE_R|PTE_LIBRARY)) < 0)
+	if ((r = fd_alloc(&fd1)) < 0 ||  
+		(r = syscall_mem_alloc(0, (u_int)fd1, PTE_V|PTE_R|PTE_LIBRARY)) < 0)
 		goto err1;
 
 	// allocate the pipe structure as first data page in both
@@ -67,8 +65,7 @@ err1:	syscall_mem_unmap(0, (u_int)fd0);
 err:	return r;
 }
 
-static int
-_pipeisclosed(struct Fd *fd, struct Pipe *p)
+static int _pipeisclosed(struct Fd *fd, struct Pipe *p)
 {
 	// Your code here.
 	// 
@@ -93,8 +90,7 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 //	return 0;
 }
 
-int
-pipeisclosed(int fdnum)
+int pipeisclosed(int fdnum)
 {
 	struct Fd *fd;
 	struct Pipe *p;
@@ -106,8 +102,7 @@ pipeisclosed(int fdnum)
 	return _pipeisclosed(fd, p);
 }
 
-static int
-piperead(struct Fd *fd, void *vbuf, u_int n, u_int offset)
+static int piperead(struct Fd *fd, void *vbuf, u_int n, u_int offset)
 {
 	// Your code here.  See the lab text for a description of
 	// what piperead needs to do.  Write a loop that 
@@ -127,8 +122,7 @@ piperead(struct Fd *fd, void *vbuf, u_int n, u_int offset)
 //	return -E_INVAL;
 }
 
-static int
-pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
+static int pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
 {
 	// Your code here.  See the lab text for a description of what 
 	// pipewrite needs to do.  Write a loop that transfers one byte
@@ -150,8 +144,7 @@ pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
 	return n;
 }
 
-static int
-pipestat(struct Fd *fd, struct Stat *stat)
+static int pipestat(struct Fd *fd, struct Stat *stat)
 {
 	struct Pipe *p;
 
@@ -159,8 +152,7 @@ pipestat(struct Fd *fd, struct Stat *stat)
 
 }
 
-static int
-pipeclose(struct Fd *fd)
+static int pipeclose(struct Fd *fd)
 {
 	syscall_mem_unmap(0, fd2data(fd));
 	return 0;
