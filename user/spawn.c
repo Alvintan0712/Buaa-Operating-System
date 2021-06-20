@@ -7,8 +7,7 @@
 #define TMPPAGE		(BY2PG)
 #define TMPPAGETOP	(TMPPAGE+BY2PG)
 
-int
-init_stack(u_int child, char **argv, u_int *init_esp)
+int init_stack(u_int child, char **argv, u_int *init_esp)
 {
 	int argc, i, r, tot;
 	char *strings;
@@ -17,29 +16,29 @@ init_stack(u_int child, char **argv, u_int *init_esp)
 	// Count the number of arguments (argc)
 	// and the total amount of space needed for strings (tot)
 	tot = 0;
-	for (argc=0; argv[argc]; argc++)
-		tot += strlen(argv[argc])+1;
+	for (argc = 0; argv[argc]; argc++)
+		tot += strlen(argv[argc]) + 1;
 
 	// Make sure everything will fit in the initial stack page
-	if (ROUND(tot, 4)+4*(argc+3) > BY2PG)
+	if (ROUND(tot, 4) + 4*(argc + 3) > BY2PG)
 		return -E_NO_MEM;
 
 	// Determine where to place the strings and the args array
-	strings = (char*)TMPPAGETOP - tot;
-	args = (u_int*)(TMPPAGETOP - ROUND(tot, 4) - 4*(argc+1));
+	strings = (char *)TMPPAGETOP - tot;
+	args = (u_int *)(TMPPAGETOP - ROUND(tot, 4) - 4*(argc + 1));
 
 	if ((r = syscall_mem_alloc(0, TMPPAGE, PTE_V|PTE_R)) < 0)
 		return r;
 	// Replace this with your code to:
 	//
 	//	- copy the argument strings into the stack page at 'strings'
-	char *ctemp,*argv_temp;
+	char *ctemp, *argv_temp;
 	u_int j;
 	ctemp = strings;
-	for(i = 0;i < argc; i++)
+	for(i = 0; i < argc; i++)
 	{
 		argv_temp = argv[i];
-		for(j=0;j < strlen(argv[i]);j++)
+		for(j = 0; j < strlen(argv[i]); j++)
 		{
 			*ctemp = *argv_temp;
 			ctemp++;
@@ -52,10 +51,10 @@ init_stack(u_int child, char **argv, u_int *init_esp)
 	//	  that will be valid addresses for the child environment
 	//	  (for whom this page will be at USTACKTOP-BY2PG!).
 	ctemp = (char *)(USTACKTOP - TMPPAGETOP + (u_int)strings);
-	for(i = 0;i < argc;i++)
+	for(i = 0; i < argc; i++)
 	{
 		args[i] = (u_int)ctemp;
-		ctemp += strlen(argv[i])+1;
+		ctemp += strlen(argv[i]) + 1;
 	}
 	//	- set args[argc] to 0 to null-terminate the args array.
 	ctemp--;
@@ -72,7 +71,7 @@ init_stack(u_int child, char **argv, u_int *init_esp)
 	//	- set *init_esp to the initial stack pointer for the child
 	//
 	*init_esp = USTACKTOP - TMPPAGETOP + (u_int)pargv_ptr;
-//	*init_esp = USTACKTOP;	// Change this!
+	//	*init_esp = USTACKTOP;	// Change this!
 
 	if ((r = syscall_mem_map(0, TMPPAGE, child, USTACKTOP-BY2PG, PTE_V|PTE_R)) < 0)
 		goto error;
@@ -98,8 +97,7 @@ int usr_is_elf_format(u_char *binary){
     return 0;
 }
 
-int 
-usr_load_elf(int fd , Elf32_Phdr *ph, int child_envid){
+int usr_load_elf(int fd , Elf32_Phdr *ph, int child_envid){
 	//Hint: maybe this function is useful 
 	//      If you want to use this func, you should fill it ,it's not hard
 	return 0;
@@ -107,25 +105,32 @@ usr_load_elf(int fd , Elf32_Phdr *ph, int child_envid){
 
 int spawn(char *prog, char **argv)
 {
-	u_char elfbuf[512];
-	int r;
-	int fd;
-	u_int child_envid;
-	int size, text_start;
-	u_int i, *blk;
-	u_int esp;
-	Elf32_Ehdr* elf;
 	Elf32_Phdr* ph;
+
+	int r;
 	// Note 0: some variable may be not used,you can cancel them as you like
 	// Step 1: Open the file specified by `prog` (prog is the path of the program)
-	if((r=open(prog, O_RDONLY))<0){
+	if((r = open(prog, O_RDONLY)) < 0) {
 		user_panic("spawn ::open line 102 RDONLY wrong !\n");
 		return r;
 	}
 	// Your code begins here
+	int fd = r;
+	
 	// Before Step 2 , You had better check the "target" spawned is a execute bin 
+	u_char elfbuf[512];
+	Elf32_Ehdr *elf;
+	if (r = read(fd, elfbuf, 512) < 0) return r;
+	if (strlen(elfbuf) < 4 || !usr_is_elf_format(elfbuf)) return -E_INVAL;
+	elf = (Elf32_Ehdr *) elfbuf;
+	
 	// Step 2: Allocate an env (Hint: using syscall_env_alloc())
+	u_int child_envid = syscall_env_alloc();
+	
 	// Step 3: Using init_stack(...) to initialize the stack of the allocated env
+	u_int esp;
+	if (r = init_stack(child_envid, argv, &esp)) return r;
+	
 	// Step 3: Map file's content to new env's text segment
 	//        Hint 1: what is the offset of the text segment in file? try to use objdump to find out.
 	//        Hint 2: using read_map(...)
@@ -135,6 +140,14 @@ int spawn(char *prog, char **argv)
 	//       the file is opened successfully, and env is allocated successfully.
 	// Note2: You can achieve this func in any way ，remember to ensure the correctness
 	//        Maybe you can review lab3 
+	struct Stat bin_stat;
+	u_int i, *blk;
+	int size, text_start;
+	if ((r = fstat(fd, &bin_stat)) < 0) return r;
+	if ((r = read_map(fd, 0, &blk)) < 0) return r;
+	size = bin_stat.st_size;
+	syscall_load_icode(child_envid, blk, size);
+	close(fd);
 	// Your code ends here
 
 	struct Trapframe *tf;
@@ -142,7 +155,6 @@ int spawn(char *prog, char **argv)
 	tf = &(envs[ENVX(child_envid)].env_tf);
 	tf->pc = UTEXT;
 	tf->regs[29]=esp;
-
 
 	// Share memory
 	u_int pdeno = 0;
@@ -171,7 +183,6 @@ int spawn(char *prog, char **argv)
 		}
 	}
 
-
 	if((r = syscall_set_env_status(child_envid, ENV_RUNNABLE)) < 0)
 	{
 		writef("set child runnable is wrong\n");
@@ -181,8 +192,7 @@ int spawn(char *prog, char **argv)
 
 }
 
-int
-spawnl(char *prog, char *args, ...)
+int spawnl(char *prog, char *args, ...)
 {
 	return spawn(prog, &args);
 }

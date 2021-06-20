@@ -5,8 +5,7 @@ int flag[256];
 void lsdir(char*, char*);
 void ls1(char*, u_int, u_int, char*);
 
-void
-ls(char *path, char *prefix)
+void ls(char *path, char *prefix)
 {
 	int r;
 	struct Stat st;
@@ -19,8 +18,7 @@ ls(char *path, char *prefix)
 		ls1(0, st.st_isdir, st.st_size, path);
 }
 
-void
-lsdir(char *path, char *prefix)
+void lsdir(char *path, char *prefix)
 {
 	int fd, n;
 	struct File f;
@@ -36,8 +34,7 @@ lsdir(char *path, char *prefix)
 		user_panic("error reading directory %s: %e", path, n);
 }
 
-void
-ls1(char *prefix, u_int isdir, u_int size, char *name)
+void ls1(char *prefix, u_int isdir, u_int size, char *name)
 {
 	char *sep;
 
@@ -56,15 +53,13 @@ ls1(char *prefix, u_int isdir, u_int size, char *name)
 	fwritef(1, " ");
 }
 
-void
-usage(void)
+void usage(void)
 {
 	fwritef(1, "usage: ls [-dFl] [file...]\n");
 	exit();
 }
 
-void
-umain(int argc, char **argv)
+void umain(int argc, char **argv)
 {
 	int i;
 

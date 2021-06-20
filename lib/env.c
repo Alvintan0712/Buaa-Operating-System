@@ -515,3 +515,8 @@ void env_check()
     printf("pe2`s sp register %x\n",pe2->env_tf.regs[29]);
     printf("env_check() succeeded!\n");
 }
+
+void env_load_icode(struct Env *env, u_char *bin, u_int size) 
+{
+    load_icode(env, bin, size);
+}

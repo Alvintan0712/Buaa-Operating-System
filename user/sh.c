@@ -18,25 +18,23 @@ int debug_ = 0;
 #define WHITESPACE " \t\r\n"
 #define SYMBOLS "<|>&;()"
 
-int
-_gettoken(char *s, char **p1, char **p2)
+int _gettoken(char *s, char **p1, char **p2)
 {
 	int t;
 
 	if (s == 0) {
-		//if (debug_ > 1) writef("GETTOKEN NULL\n");
+		// if (debug_ > 1) writef("GETTOKEN NULL\n");
 		return 0;
 	}
 
-	//if (debug_ > 1) writef("GETTOKEN: %s\n", s);
+	// if (debug_ > 1) writef("GETTOKEN: %s\n", s);
 
 	*p1 = 0;
 	*p2 = 0;
 
-	while(strchr(WHITESPACE, *s))
-		*s++ = 0;
+	while(strchr(WHITESPACE, *s)) *s++ = 0;
 	if(*s == 0) {
-	//	if (debug_ > 1) writef("EOL\n");
+		// if (debug_ > 1) writef("EOL\n");
 		return 0;
 	}
 	if(strchr(SYMBOLS, *s)){
@@ -44,7 +42,7 @@ _gettoken(char *s, char **p1, char **p2)
 		*p1 = s;
 		*s++ = 0;
 		*p2 = s;
-//		if (debug_ > 1) writef("TOK %c\n", t);
+		// if (debug_ > 1) writef("TOK %c\n", t);
 		return t;
 	}
 	*p1 = s;
@@ -54,14 +52,13 @@ _gettoken(char *s, char **p1, char **p2)
 	if (debug_ > 1) {
 		t = **p2;
 		**p2 = 0;
-//		writef("WORD: %s\n", *p1);
+		// writef("WORD: %s\n", *p1);
 		**p2 = t;
 	}
 	return 'w';
 }
 
-int
-gettoken(char *s, char **p1)
+int gettoken(char *s, char **p1)
 {
 	static int c, nc;
 	static char *np1, *np2;
@@ -77,59 +74,88 @@ gettoken(char *s, char **p1)
 }
 
 #define MAXARGS 16
-void
-runcmd(char *s)
+void runcmd(char *s)
 {
 	char *argv[MAXARGS], *t;
-	int argc, c, i, r, p[2], fd, rightpipe;
+	int argc, c, i, r, p[2], fd, rightpipe = 0;
 	int fdnum;
-	rightpipe = 0;
-	gettoken(s, 0);
+	char *filein, *fileout;
+	gettoken(s, 0); // put word
 again:
 	argc = 0;
-	for(;;){
-		c = gettoken(0, &t);
-		switch(c){
+	for(;;) {
+		c = gettoken(0, &t); // get word
+		switch(c) {
 		case 0:
 			goto runit;
+
 		case 'w':
-			if(argc == MAXARGS){
+			if(argc == MAXARGS) {
 				writef("too many arguments\n");
 				exit();
 			}
 			argv[argc++] = t;
 			break;
+
 		case '<':
-			if(gettoken(0, &t) != 'w'){
+			if(gettoken(0, &t) != 'w') {
 				writef("syntax error: < not followed by word\n");
 				exit();
 			}
 			// Your code here -- open t for reading,
 			// dup it onto fd 0, and then close the fd you got.
-			user_panic("< redirection not implemented");
+			filein = t; // get file input name
+			fdnum = open(filein, O_RDONLY);
+			dup(fdnum, 0); // duplicate to pipe[0]
+			close(fdnum);
+			// user_panic("< redirection not implemented");
 			break;
+
 		case '>':
 			// Your code here -- open t for writing,
 			// dup it onto fd 1, and then close the fd you got.
-			user_panic("> redirection not implemented");
+			fileout = t;
+			fdnum = open(fileout, O_WRONLY);
+			dup(fdnum, 1); // duplicate to pipe[1]
+			close(fdnum);
+			// user_panic("> redirection not implemented");
 			break;
+
 		case '|':
 			// Your code here.
 			// 	First, allocate a pipe.
+			if (r = pipe(p)) return r;
+
 			//	Then fork.
-			//	the child runs the right side of the pipe:
-			//		dup the read end of the pipe onto 0
-			//		close the read end of the pipe
-			//		close the write end of the pipe
-			//		goto again, to parse the rest of the command line
-			//	the parent runs the left side of the pipe:
-			//		dup the write end of the pipe onto 1
-			//		close the write end of the pipe
-			//		close the read end of the pipe
-			//		set "rightpipe" to the child envid
-			//		goto runit, to execute this piece of the pipeline
-			//			and then wait for the right side to finish
-			user_panic("| not implemented");
+			r = fork();
+			if (r < 0) {
+				user_panic("fork error");
+			} else if (r == 0) {
+				// the child runs the right side of the pipe:
+				// dup the read end of the pipe onto 0
+				// close the read end of the pipe
+				// close the write end of the pipe
+				// goto again, to parse the rest of the command line
+				dup(p[0], 0);
+				close(p[0]);
+				close(p[1]);
+				goto again;
+			} else {
+				// the parent runs the left side of the pipe:
+				// dup the write end of the pipe onto 1
+				// close the write end of the pipe
+				// close the read end of the pipe
+				// set "rightpipe" to the child envid
+				// goto runit, to execute this piece of the pipeline
+				// and then wait for the right side to finish
+				dup(p[1], 1);
+				close(p[1]);
+				close(p[0]);
+				rightpipe = r;
+				goto runit;
+			}
+
+			// user_panic("| not implemented");
 			break;
 		}
 	}
@@ -162,8 +188,7 @@ runit:
 	exit();
 }
 
-void
-readline(char *buf, u_int n)
+void readline(char *buf, u_int n)
 {
 	int i, r;
 
@@ -193,15 +218,13 @@ readline(char *buf, u_int n)
 
 char buf[1024];
 
-void
-usage(void)
+void usage(void)
 {
 	writef("usage: sh [-dix] [command-file]\n");
 	exit();
 }
 
-void
-umain(int argc, char **argv)
+void umain(int argc, char **argv)
 {
 	int r, interactive, echocmds;
 	interactive = '?';
