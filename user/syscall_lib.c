@@ -16,7 +16,6 @@ u_int syscall_getenvid(void)
 
 void syscall_yield(void)
 {
-	writef("yield\n");
 	msyscall(SYS_yield, 0, 0, 0, 0, 0);
 }
 

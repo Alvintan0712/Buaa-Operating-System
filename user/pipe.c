@@ -165,7 +165,6 @@ static int pipestat(struct Fd *fd, struct Stat *stat)
 
 static int pipeclose(struct Fd *fd)
 {
-	writef("pipeclose\n");
 	u_int va = fd2data(fd);
 	syscall_mem_unmap(0, fd); 	// unmap fd first
 	syscall_mem_unmap(0, va); 	// later unmap pipe
