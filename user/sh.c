@@ -114,6 +114,10 @@ again:
 		case '>':
 			// Your code here -- open t for writing,
 			// dup it onto fd 1, and then close the fd you got.
+			if(gettoken(0, &t) != 'w') {
+				writef("syntax error: < not followed by word\n");
+				exit();
+			}
 			fileout = t;
 			fdnum = open(fileout, O_WRONLY);
 			dup(fdnum, 1); // duplicate to pipe[1]
