@@ -125,11 +125,12 @@ int spawn(char *prog, char **argv)
 	elf = (Elf32_Ehdr *) elfbuf;
 	
 	// Step 2: Allocate an env (Hint: using syscall_env_alloc())
-	u_int child_envid = syscall_env_alloc();
+	if ((r = syscall_env_alloc()) < r) return r;
+	u_int child_envid = r;
 	
 	// Step 3: Using init_stack(...) to initialize the stack of the allocated env
 	u_int esp;
-	if (r = init_stack(child_envid, argv, &esp)) return r;
+	if ((r = init_stack(child_envid, argv, &esp)) < 0) return r;
 	
 	// Step 3: Map file's content to new env's text segment
 	//        Hint 1: what is the offset of the text segment in file? try to use objdump to find out.

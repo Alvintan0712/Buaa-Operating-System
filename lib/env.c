@@ -516,7 +516,9 @@ void env_check()
     printf("env_check() succeeded!\n");
 }
 
-void env_load_icode(struct Env *env, u_char *bin, u_int size) 
+int env_load_icode(struct Env *env, u_char *bin, u_int size) 
 {
-    load_icode(env, bin, size);
+    int r;
+    u_long entry_point;
+    return load_elf(bin, size, &entry_point, env, load_icode_mapper);
 }

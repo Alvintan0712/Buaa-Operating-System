@@ -457,5 +457,5 @@ int sys_load_icode(int sysno, u_int envid, u_char *bin, u_int size)
 	int r;
 	struct Env *e;
 	if (r = envid2env(envid, &e, 0)) return r;
-	env_load_icode(e, bin, size);
+	return env_load_icode(e, bin, size);
 }
