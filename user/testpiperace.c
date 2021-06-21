@@ -58,7 +58,7 @@ void umain(void)
 	if ((r = fd_lookup(p[0], &fd)) < 0)
 		user_panic("cannot look up p[0]: %e", r);
 	va = fd2data(fd);
-	if (pageref((void*)va) != 3+1)
+	if (pageref((void*) va) != 3 + 1)
 		writef("\nchild detected race\n");
 	else
 		writef("\nrace didn't happen\n", max);

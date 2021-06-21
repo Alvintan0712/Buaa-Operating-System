@@ -19,7 +19,7 @@ void umain (int argc, char **argv)
     if(r==0){
         strcpy(TMPVA,msg);
         exit(); 
-    }   
+    }
 
     wait(r);
     writef("TMPVAis  %s \n",TMPVA);
@@ -34,8 +34,6 @@ void umain (int argc, char **argv)
         writef("spawn solved the problem of PTE_LIBRARY,congratulations!\n");
     else
         user_panic("sorry , your spawn may be wrong\n");
-
-
 }
 
 void childofspawn(void){

@@ -81,7 +81,7 @@ static int _pipeisclosed(struct Fd *fd, struct Pipe *p)
 	// to the total number of readers and writers, then
 	// everybody left is what fd is.  So the other end of
 	// the pipe is closed.
-	int pfd, pfp, runs = -1;
+	int pfd, pfp, runs;
 	do {
 		pfd = pageref(fd);
 		pfp = pageref(p);
@@ -165,8 +165,7 @@ static int pipestat(struct Fd *fd, struct Stat *stat)
 
 static int pipeclose(struct Fd *fd)
 {
-	u_int va = fd2data(fd);
-	syscall_mem_unmap(0, fd); 	// unmap fd first
-	syscall_mem_unmap(0, va); 	// later unmap pipe
+	syscall_mem_unmap(0, fd); 			// unmap fd first
+	syscall_mem_unmap(0, fd2data(fd)); 	// later unmap pipe
 	return 0;
 }
