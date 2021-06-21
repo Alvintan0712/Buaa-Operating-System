@@ -210,7 +210,6 @@ void serve_remove(u_int envid, struct Fsreq_remove *rq)
 
 void serve_dirty(u_int envid, struct Fsreq_dirty *rq)
 {
-
 	// Your code here
 	struct Open *pOpen;
 	int r;

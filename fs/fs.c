@@ -14,7 +14,7 @@ int block_is_free(u_int);
 //	than disk's nblocks, panic.
 u_int diskaddr(u_int blockno)
 {
-	if (super && blockno > super->s_nblocks) user_panic("blockno is greater than nblocks!");
+	if (super && blockno >= super->s_nblocks) user_panic("blockno is greater than nblocks!");
 	return DISKMAP + blockno * BY2BLK;
 }
 

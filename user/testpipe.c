@@ -31,9 +31,7 @@ void umain(void)
 		writef("[%08x] pipereadeof close %d\n", env->env_id, p[0]);
 		close(p[0]);
 		writef("[%08x] pipereadeof write %d\n", env->env_id, p[1]);
-		writef("msg len = %d\n", strlen(msg));
 		if ((i=write(p[1], msg, strlen(msg))) != strlen(msg)) {
-			writef("i = %d\n", i);
 			user_panic("write: %e", i);
 		}
 		close(p[1]);
@@ -48,7 +46,7 @@ void umain(void)
 
 	if (pid == 0) {
 		close(p[0]);
-		for(;;){
+		for(;;) {
 			writef(".");
 			if(write(p[1], "x", 1) != 1)
 				break;

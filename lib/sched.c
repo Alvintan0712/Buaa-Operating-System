@@ -40,10 +40,9 @@ void sched_yield(void)
         do {
             if (LIST_EMPTY(&env_sched_list[point])) point ^= 1; // if list empty change list
             e = LIST_FIRST(&env_sched_list[point]);
-            if (e && e->env_status != ENV_RUNNABLE) {
+            if (e && e->env_status == ENV_NOT_RUNNABLE) {
                 LIST_REMOVE(e, env_sched_link);
-                if (e->env_status == ENV_NOT_RUNNABLE) 
-                    LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link);
+                LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link);
             } 
         } while (e && e->env_status != ENV_RUNNABLE);
         count = e->env_pri;

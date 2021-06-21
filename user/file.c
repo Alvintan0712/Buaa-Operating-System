@@ -52,10 +52,9 @@ int open(const char *path, int mode)
 	va = fd2data(fd);
 
 	// Step 4: Alloc memory, map the file content into memory.
-	for (i = 0; i < size; i += BY2BLK) {
-		if (r = syscall_mem_alloc(0, va + i, PTE_V | PTE_R)) return r;
-		if (r = fsipc_map(fileid, i, va + i)) return r;
-	}
+	for (i = 0; i < size; i += BY2BLK) 
+		if (r = fsipc_map(fileid, i, va + i)) 
+			return r;
 
 	// Step 5: Return the number of file descriptor.
 	return fd2num(fd);

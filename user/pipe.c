@@ -81,7 +81,7 @@ static int _pipeisclosed(struct Fd *fd, struct Pipe *p)
 	// to the total number of readers and writers, then
 	// everybody left is what fd is.  So the other end of
 	// the pipe is closed.
-	int pfd, pfp, runs;
+	int pfd, pfp, runs = -1;
 	do {
 		pfd = pageref(fd);
 		pfp = pageref(p);
@@ -117,18 +117,15 @@ static int piperead(struct Fd *fd, void *vbuf, u_int n, u_int offset)
 	int i;
 	struct Pipe *p = (struct Pipe *) fd2data(fd);
 	char *rbuf = (char *) vbuf;
-	// writef("start read\n");
 
 	for (i = 0; i < n; i++, p->p_rpos++) {
-		// writef("i = %d, wpos = %d, rpos = %d, BY2PIPE = %d\n", i, p->p_wpos, p->p_rpos, BY2PIPE);
-		while (p->p_rpos == p->p_wpos) {
+		while (p->p_rpos >= p->p_wpos) {
 			if (_pipeisclosed(fd, p)) return i;
 			syscall_yield();
 		}
 		rbuf[i] = p->p_buf[p->p_rpos % BY2PIPE];
 	}
-	return n;
-
+	return i;
 	// user_panic("piperead not implemented");
 	// return -E_INVAL;
 }
@@ -145,22 +142,17 @@ static int pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
 	int i;
 	struct Pipe *p = (struct Pipe *) fd2data(fd);
 	char *wbuf = (char *) vbuf;
-	// writef("start write\n");
-	// writef("wbuf = %s, n = %d\n", wbuf, n);
-	
-	for (i = 0; i < n; i++, p->p_wpos++) {
-		// writef("i = %d, wpos = %d, rpos = %d, BY2PIPE = %d\n", i, p->p_wpos, p->p_rpos, BY2PIPE);
-		while (p->p_wpos - p->p_rpos == BY2PIPE) {
-			// writef("in while:wpos = %d, rpos = %d, BY2PIPE = %d\n", p->p_wpos, p->p_rpos, BY2PIPE);
+
+	for (i = 0; i < n; i++) {
+		while (p->p_wpos - p->p_rpos >= BY2PIPE) {
 			if (_pipeisclosed(fd, p)) return 0;
 			syscall_yield();
 		}
 		p->p_buf[p->p_wpos % BY2PIPE] = wbuf[i];
+		p->p_wpos++;
 	}
-
 	// return -E_INVAL;
 	// user_panic("pipewrite not implemented");
-	// writef("return n!, n = %d\n", n);
 	return n;
 }
 
@@ -173,8 +165,9 @@ static int pipestat(struct Fd *fd, struct Stat *stat)
 
 static int pipeclose(struct Fd *fd)
 {
-	syscall_mem_unmap(0, fd); 			// unmap fd first
-	syscall_mem_unmap(0, fd2data(fd)); 	// later unmap pipe
+	writef("pipeclose\n");
+	u_int va = fd2data(fd);
+	syscall_mem_unmap(0, fd); 	// unmap fd first
+	syscall_mem_unmap(0, va); 	// later unmap pipe
 	return 0;
 }
-
