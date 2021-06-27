@@ -19,47 +19,42 @@ struct Page {
 	// do not have valid reference count fields.
 
 	u_short pp_ref;
+
+	// lab2-challenge
+	u_short pp_lock;
 };
 
 extern struct Page *pages;
-static inline u_long
-page2ppn(struct Page *pp)
+static inline u_long page2ppn(struct Page *pp)
 {
 	return pp - pages;
 }
 
-static inline u_long
-page2pa(struct Page *pp)
+static inline u_long page2pa(struct Page *pp)
 {
-	return page2ppn(pp)<<PGSHIFT;
+	return page2ppn(pp) << PGSHIFT;
 }
 
-static inline struct Page *
-pa2page(u_long pa)
+static inline struct Page *pa2page(u_long pa)
 {
 	if (PPN(pa) >= npage)
 		panic("pa2page called with invalid pa: %x", pa);
 	return &pages[PPN(pa)];
 }
 
-static inline u_long
-page2kva(struct Page *pp)
+static inline u_long page2kva(struct Page *pp)
 {
 	return KADDR(page2pa(pp));
 }
 
-
-static inline u_long
-va2pa(Pde *pgdir, u_long va)
+static inline u_long va2pa(Pde *pgdir, u_long va)
 {
 	Pte *p;
 
 	pgdir = &pgdir[PDX(va)];
-	if (!(*pgdir&PTE_V))
-		return ~0;
-	p = (Pte*)KADDR(PTE_ADDR(*pgdir));
-	if (!(p[PTX(va)]&PTE_V))
-		return ~0;
+	if (!(*pgdir & PTE_V)) return ~0;
+	p = (Pte*) KADDR(PTE_ADDR(*pgdir));
+	if (!(p[PTX(va)] & PTE_V)) return ~0;
 	return PTE_ADDR(p[PTX(va)]);
 }
 
@@ -83,5 +78,20 @@ void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm);
 
 extern struct Page *pages;
 
+// lab2-challenge
+void lock(u_long addr, size_t len);
+void unlock(u_long addr, size_t len);
+int mlock(u_long addr, size_t len);
+int munlock(u_long addr, size_t len);
+void lockall_current();
+int mlockall(int flags);
+int munlockall(void);
+void pageInsert(struct Page *pp);
+int pageExists(struct Page *pp);
+
+// lab2-challenge test
+void lock_check();
+void page_replacement_check();
+void inverted_page_check();
 
 #endif /* _PMAP_H_ */

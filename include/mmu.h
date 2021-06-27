@@ -38,7 +38,8 @@
 #define PTE_D		0x0002	// fileSystem Cached is dirty
 #define PTE_COW		0x0001	// Copy On Write
 #define PTE_UC		0x0800	// unCached
-#define PTE_LIBRARY		0x0004	// share memmory
+#define PTE_LIBRARY	0x0004	// share memmory
+
 /*
  * Part 2.  Our conventions.
  */
@@ -123,6 +124,10 @@
 #define E_NOT_EXEC	12	// File not a valid executable
 
 #define MAXERROR 12
+
+// mlockall flags
+#define MCL_CURRENT 1
+#define MCL_FUTURE  2
 
 #ifndef __ASSEMBLER__
 

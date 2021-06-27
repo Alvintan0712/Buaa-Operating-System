@@ -16,8 +16,13 @@ Pde *boot_pgdir;
 struct Page *pages;
 static u_long freemem;
 
-static struct Page_list page_free_list;	/* Free list of physical pages */
+static struct Page_list page_free_list;	    // Free list of physical pages
+static int page_list[8];  // page in physical memory
+static int swap_list[50]; // page in swap space
 
+// lab2-challenge
+int future_lock = 0;
+int page_list_max = 8;
 
 /* Overview:
  	Initialize basemem and npage.
@@ -194,7 +199,10 @@ void page_init(void)
     struct Page *page;
     u_long i;
     u_long page_size = PPN(PADDR(freemem));
-    for (i = 0; i < page_size; i++) pages[i].pp_ref = 1;
+    for (i = 0; i < page_size; i++) {
+        pages[i].pp_ref = 1;
+        pages[i].pp_lock = 0x3;
+    }
 
     /* Step 4: Mark the other memory as free. */
     for (i; i < npage; i++) {
@@ -289,6 +297,7 @@ int pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
                 return -E_NO_MEM;
             } else {
                 ppage->pp_ref++;
+                ppage->pp_lock |= future_lock;
                 *pgdir_entryp = page2pa(ppage);
                 *pgdir_entryp = (*pgdir_entryp) | PTE_V | PTE_R;
             }
@@ -315,24 +324,27 @@ int pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
 
   Hint:
 	If there is already a page mapped at `va`, call page_remove() to release this mapping.
-	The `pp_ref` should be incremented if the insertion succeeds.*/
+	The `pp_ref `  should be incremented if the insertion succeeds.*/
 int page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 {
     u_int PERM = perm | PTE_V;
     Pte *pgtable_entry;
+
+    if (pp->pp_lock) return -E_INVAL;
 
     /* Step 1: Get corresponding page table entry. */
     pgdir_walk(pgdir, va, 0, &pgtable_entry);
 
     if (pgtable_entry != 0 && (*pgtable_entry & PTE_V) != 0) {
         if (pa2page(*pgtable_entry) != pp) {
+            // check physical page locked
             page_remove(pgdir, va);
-        } else	{
+        } else {
             tlb_invalidate(pgdir, va);
             *pgtable_entry = (page2pa(pp) | PERM);
             return 0;
         }
-    }
+    } 
 
     /* Step 2: Update TLB. */
     /* hint: use tlb_invalidate function */
@@ -342,9 +354,10 @@ int page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
     /* Step 3.1 Check if the page can be insert, if can’t return -E_NO_MEM */
     if (pgdir_walk(pgdir, va, 1, &pgtable_entry) == -E_NO_MEM) return -E_NO_MEM;
 
-    /* Step 3.2 Insert page and increment the pp_ref */
+    /* Step 3.2 Insert page and increment the pp_ref   */
     *pgtable_entry = page2pa(pp) | PERM;
     pp->pp_ref++;
+    pp->pp_lock |= future_lock;
 
     return 0;
 }
@@ -382,9 +395,9 @@ struct Page *page_lookup(Pde *pgdir, u_long va, Pte **ppte) {
 }
 
 // Overview:
-// 	Decrease the `pp_ref` value of Page `*pp`, if `pp_ref` reaches to 0, free this page.
+// 	Decrease the `pp_ref `  value of Page `*pp`, if `pp_ref `  reaches to 0, free this page.
 void page_decref(struct Page *pp) {
-    if(--pp->pp_ref == 0) {
+    if(--pp->pp_ref   == 0) {
         page_free(pp);
     }
 }
@@ -401,10 +414,11 @@ void page_remove(Pde *pgdir, u_long va)
 
     if (ppage == 0) {
         return;
+    } else if (ppage->pp_lock) { // locked page can't remove
+        return;
     }
 
-    /* Step 2: Decrease `pp_ref` and decide if it's necessary to free this page. */
-
+    /* Step 2: Decrease `pp_ref `  and decide if it's necessary to free this page. */
     /* Hint: When there's no virtual address mapped to this page, release it. */
     ppage->pp_ref--;
     if (ppage->pp_ref == 0) {
@@ -480,7 +494,7 @@ void physical_memory_manage_check(void)
 	struct Page *p, *q;
 	//test inert tail
 	for (i = 0; i < 10; i++) {
-		test_pages[i].pp_ref=i;
+		test_pages[i].pp_ref = i;
 		//test_pages[i].pp_link=NULL;
 		//printf("0x%x  0x%x\n",&test_pages[i], test_pages[i].pp_link.le_next);
 		LIST_INSERT_TAIL(&test_free,&test_pages[i],pp_link);
@@ -516,7 +530,6 @@ void physical_memory_manage_check(void)
 
     printf("physical_memory_manage_check() succeeded\n");
 }
-
 
 void page_check(void)
 {
@@ -665,3 +678,333 @@ void pageout(int va, int context)
     printf("pageout:\t@@@___0x%x___@@@  ins a page \n", va);
 }
 
+void lock(u_long addr, size_t len) {
+    u_long i;
+    Pte *pgtable_entry;
+    struct Page *pp;
+    
+    for (i = 0; i < len; i += BY2PG) {
+        pp = page_lookup(boot_pgdir, addr + i, &pgtable_entry);
+        pp->pp_lock |= 0x1;
+    }
+}
+
+void unlock(u_long addr, size_t len) {
+    u_long i;
+    Pte *pgtable_entry;
+    struct Page *pp;
+
+    for (i = 0; i < len; i += BY2PG) {
+        pp = page_lookup(boot_pgdir, addr + i, &pgtable_entry);
+        pp->pp_lock &= ~1;
+    }
+}
+
+/* Overview:
+ *  mlock() locks pages in the address range starting at addr
+ *  and continuing for len bytes. All pages that contain
+ *  a part of the specified address range are guaranteed
+ *  to be resident in RAM when the call returns successfully;
+ *  the pages are guaranteed to stay in RAM until later unlocked.
+ * Post-Condition:
+ *  On success these system calls return 0. 
+ *  On error, return < 0.
+ */
+int mlock(u_long addr, size_t len) {
+    u_long i;
+    Pte *pgtable, *pgtable_entry;
+    struct Page *ppage;
+
+    len = ROUND(len, BY2PG); // align in 4KB
+    for (i = 0; i < len; i += BY2PG) {
+        // get the page
+        ppage = page_lookup(boot_pgdir, addr + i, &pgtable_entry);
+        if (ppage == NULL || ppage->pp_ref > 1) return -1;
+    }
+    lock(addr, len);
+
+    return 0;
+}
+
+/* Overview:
+ *  munlock() unlocks pages in the address range starting at addr and continuing
+ *  for len bytes. After this call, all pages that contain a part of the specified 
+ *  memory range can be moved to external swap space again by the kernel.
+ * Post-Condition:
+ *  On success these system calls return 0.
+ *  On error, return < 0.
+ */
+int munlock(u_long addr, size_t len) {
+    u_long i;
+    Pte *pgtable, *pgtable_entry;
+
+    len = ROUND(len, BY2PG);
+    for (i = 0; i < len; i += BY2PG) {
+        pgdir_walk(boot_pgdir, addr + i, 0, &pgtable_entry);
+        if (pgtable_entry == NULL || !(*pgtable_entry & PTE_V)) 
+            return -1;
+    }
+    unlock(addr, len);
+
+    return 0;
+}
+
+void lockall_current() {
+    int i;
+    Pte *pte;
+    for (i = 0; i < npage; i++) // travese all pages
+        if (pages[i].pp_ref == 1) // if this page map on 1 virtual page
+            pages[i].pp_lock |= 0x1;
+}
+
+/* Overview:
+ *  mlockall() locks all pages mapped into the address space 
+ *  of the calling process. This includes the pages of the code, 
+ *  data and stack segment, as well as shared libraries, user space 
+ *  kernel data, shared memory, and memory-mapped files. All mapped 
+ *  pages are guaranteed to be resident in RAM when the call returns 
+ *  successfully; the pages are guaranteed to stay in RAM until later 
+ *  unlocked.
+ * Post-Condition:
+ *  On success these system call return 0.
+ *  On error, return < 0.
+ */
+int mlockall(int flags) {
+    switch (flags) {
+        case MCL_CURRENT:
+            lockall_current();
+            break;
+        
+        case MCL_FUTURE:
+            future_lock = 1;
+            break;
+        
+        default:
+            return -E_INVAL;
+    }
+    return 0;
+}
+
+/* Overview:
+ *  munlockall() unlocks all pages mapped into the address 
+ *  space of the calling process.
+ * Post-Condition:
+ *  On success these system call return 0.
+ *  On error, return < 0.
+ */
+int munlockall(void) {
+    int i;
+    Pte *pte;
+    for (i = 0; i < npage; i++) 
+        pages[i].pp_lock &= ~1;
+
+    return 0;
+}
+
+void lock_check() {
+    int i, n;
+    u_long va;
+    Pte *pte;
+    struct Page *pp, *pp0, *pp1, *pp2;
+
+    assert(page_alloc(&pp0) == 0);
+    assert(page_alloc(&pp1) == 0);
+    assert(page_alloc(&pp2) == 0);
+
+    assert(pp0);
+    assert(pp1 && pp1 != pp0);
+    assert(pp2 && pp2 != pp1 && pp2 != pp0);
+
+    /********* initial test *********/
+    printf("test UPAGES ...\n");    
+    n = ROUND(npage * sizeof(struct Page), BY2PG);
+    for (va = UPAGES; va < UPAGES + n; va += BY2PG) {
+        pp = page_lookup(boot_pgdir, va, &pte);
+        assert(pp->pp_lock);
+    }
+    printf("test UPAGES done\n");
+
+    printf("test UENVS ...\n");
+    n = ROUND(NENV * sizeof(struct Env), BY2PG);
+    for (va = UENVS; va < UENVS + n; va += BY2PG) {
+        pp = page_lookup(boot_pgdir, va, &pte);
+        assert(pp->pp_lock);
+    }
+    printf("test UENVS done\n");
+    printf("initial pages are locked\n");
+    /********* initial test END *********/
+
+    /********* mlock munlock test *********/
+    printf("mlock munlock test ...\n");
+    /**** test mlock work ****/
+    // alloc a page insert in physical memory
+    assert(page_insert(boot_pgdir, pp0, 0x0, 0) == 0);
+
+    // lock pp0
+    assert(mlock(0x0, BY2PG) == 0);
+    pp = page_lookup(boot_pgdir, 0x0, &pte);
+    assert(pp->pp_lock);
+    /**** mlock worked! ****/
+
+    /**** test munlock work ****/
+    // unlock pp0
+    assert(munlock(0x0, BY2PG) == 0);
+    pp = page_lookup(boot_pgdir, 0x0, &pte);
+    assert(!pp->pp_lock);
+    /**** munlock worked! ****/
+
+    // remove page on physical memory
+    page_remove(boot_pgdir, 0x0);
+
+    /**** test mlock will not lock shared memory ****/
+    assert(page_insert(boot_pgdir, pp, 0x0, 0) == 0);
+    assert(page_insert(boot_pgdir, pp, BY2PG, 0) == 0);
+
+    // when more than one virtual page map on physical
+    assert(mlock(0x0, BY2PG) < 0);
+    page_remove(boot_pgdir, BY2PG); // unmap BY2PG
+
+    // relock again
+    assert(mlock(0x0, BY2PG) == 0);
+    // can't map new virtual page, because this page was locked
+    assert(page_insert(boot_pgdir, pp, BY2PG, 0) == -E_INVAL); 
+
+    assert(munlock(0x0, BY2PG) == 0);
+    pp = page_lookup(boot_pgdir, 0x0, &pte);
+    assert(!pp->pp_lock);
+
+    page_remove(boot_pgdir, 0x0);
+    /**** mlock don't lock shared memory ****/
+    printf("mlock munlock test Accepted!\n");
+    /********* mlock munlock test END *********/
+
+    /********* mlockall munlockall test *********/
+    printf("mlockall munlockall test ...\n");
+    /**** test mlockall current work ****/
+    mlockall(MCL_CURRENT);
+    for (i = 0; i < npage; i++) 
+        if (pages[i].pp_ref == 1) assert(pages[i].pp_lock);
+        else assert(!pages[i].pp_lock);
+    /**** mlockall current worked! ****/
+
+    /**** test munlockall work ****/
+    munlockall();
+    for (i = 0; i < npage; i++) 
+        if (pages[i].pp_ref == 1) assert((pages[i].pp_lock & 1) == 0);
+        else assert(!pages[i].pp_lock);
+    // make sure initial pages locked
+    n = ROUND(npage * sizeof(struct Page), BY2PG);
+    for (va = UPAGES; va < UPAGES + n; va += BY2PG) {
+        pp = page_lookup(boot_pgdir, va, &pte);
+        assert(pp->pp_lock);
+    }
+    n = ROUND(NENV * sizeof(struct Env), BY2PG);
+    for (va = UENVS; va < UENVS + n; va += BY2PG) {
+        pp = page_lookup(boot_pgdir, va, &pte);
+        assert(pp->pp_lock);
+    }
+    /**** munlockall worked! ****/
+    assert(pp0->pp_ref == 0);
+    
+    /**** test mlockall future work ****/
+    // now new alloc page will lock immediately
+    mlockall(MCL_FUTURE);
+    
+    assert(page_insert(boot_pgdir, pp0, 0x0, 0) == 0);
+    assert(page_insert(boot_pgdir, pp1, BY2PG, 0) == 0);
+    assert(page_insert(boot_pgdir, pp2, 2*BY2PG, 0) == 0);
+
+    assert(pp0->pp_lock);
+    assert(pp1->pp_lock);
+    assert(pp2->pp_lock);
+    /**** mlockall future worked! ****/
+    printf("mlockall munlockall test Accepted!\n");
+    /********* mlockall munlockall test END *********/
+    printf("lock check done!\n");
+}
+
+int size = 0, ptr = 0;
+void pageInsert(struct Page *pp) {
+    int i, j;
+    if (pageExists(pp)) return;
+    else if (size < page_list_max) {
+        page_list[size++] = page2ppn(pp);
+    } else {
+        for (i = 0; i < size; i++) {
+            struct Page *p = &pages[page_list[i]];
+            if (!p->pp_lock) {
+                for (j = i; j < size - 1; j++)
+                    page_list[j] = page_list[j + 1];
+                page_list[j] = page2ppn(pp);
+                return;
+            }
+        }
+        printf("all pages lock in physical pages\n");
+    }
+}
+
+int pageExists(struct Page *pp) {
+    int i;
+    for (i = 0; i < size; i++) 
+        if (page_list[i] == page2ppn(pp))
+            return 1;
+    return 0;
+}
+
+void page_replacement_check() {
+    int i, j, data[50];
+    struct Page *p;
+    int merged_data[50] = {
+        7515, 523,  2974, 1649, 5215, 
+        4393, 7308, 2,    9157, 7024, 
+        9584, 2082, 808,  2463, 4, 
+        1,    6582, 802,  9553, 9333, 
+        5721, 6578, 7135, 9266, 4, 
+        2914, 1390, 5639, 1873, 3271, 
+        8799, 4792, 8403, 9485, 3996, 
+        2363, 1581, 8675, 5718, 4, 
+        1464, 4180, 1210, 3,    9587, 
+        2722, 7140, 6278, 4280, 7625
+    };
+
+    /**** normal testcase ****/
+    printf("test normal testcase ...\n");
+    for (i = 0; i < 50; i++) data[i] = npage - i - 1;
+    for (i = 0; i < 50; i++) {
+        pageInsert(&pages[data[i]]);
+        printf("[ ");
+        for (j = 0; j < size; j++, ptr = (ptr + 1) % size) 
+            printf("%d ", page_list[ptr]);
+        printf("]\n");
+    }
+    printf("normal testcase done\n");
+
+    /**** all locked pages testcase ****/
+    printf("test all locked pages testcase ...\n");
+    ptr = size = 0;
+    for (i = 0; i < 50; i++) data[i] = i;
+    for (i = 0; i < 50; i++) {
+        pageInsert(&pages[data[i]]);
+        printf("[ ");
+        for (j = 0; j < size; j++, ptr = (ptr + 1) % size) 
+            printf("%d ", page_list[ptr]);
+        printf("]\n");
+    }
+    printf("all locked pages testcase done\n");
+
+    /**** merged testcase ****/
+    printf("test merged testcase ...\n");    
+    ptr = size = 0;
+    for (i = 0; i < 50; i++) {
+        pageInsert(&pages[merged_data[i]]);
+        printf("[ ");
+        for (j = 0; j < size; j++, ptr = (ptr + 1) % size) 
+            printf("%d ", page_list[ptr]);
+        printf("]\n");
+    }
+    printf("merged testcase done\n");
+}
+
+void inverted_page_check() {
+    
+}
