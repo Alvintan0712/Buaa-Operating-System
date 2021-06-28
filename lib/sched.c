@@ -43,10 +43,15 @@ void sched_yield(void)
             if (e && e->env_status == ENV_NOT_RUNNABLE) {
                 LIST_REMOVE(e, env_sched_link);
                 LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link);
-            } 
+            } else if (e && e->env_status == ENV_FREE) {
+                LIST_REMOVE(e, env_sched_link);
+            }
         } while (e && e->env_status != ENV_RUNNABLE);
         count = e->env_pri;
     }
+
+    if (LIST_EMPTY(&env_sched_list[0]) && LIST_EMPTY(&env_sched_list[1])) 
+        panic("no environment liao ...\n");
 
     assert(count > 0);
     assert(e != NULL);

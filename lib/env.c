@@ -199,6 +199,7 @@ int env_alloc(struct Env **new, u_int parent_id)
     e->env_id = mkenvid(e);
     e->env_status = ENV_RUNNABLE;
     e->env_parent_id = parent_id;
+    e->env_runs = 0;
 
     /*Step 4: Focus on initializing the sp register and cp0_status of env_tf field, located at this new Env. */
     e->env_tf.cp0_status = 0x10001004;
@@ -438,6 +439,8 @@ void env_run(struct Env *e)
     /* Step 3: Use lcontext() to switch to its address space. */
     lcontext(e->env_pgdir);
 
+    e->env_runs++;
+
     /* Step 4: Use env_pop_tf() to restore the environment's
      * environment   registers and return to user mode.
      *
@@ -518,7 +521,6 @@ void env_check()
 
 int env_load_icode(struct Env *env, u_char *bin, u_int size) 
 {
-    int r;
     u_long entry_point;
     return load_elf(bin, size, &entry_point, env, load_icode_mapper);
 }
