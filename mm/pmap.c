@@ -23,6 +23,12 @@ static int swap_list[50]; // page in swap space
 // lab2-challenge
 int future_lock = 0;
 int page_list_max = 8;
+// inverted page table
+const int Hsize = 1031;
+struct iPage *ipages;
+static struct iPage_list htable[1031];
+static struct iPage_list ipage_free_list;
+u_int nipage;
 
 /* Overview:
  	Initialize basemem and npage.
@@ -707,7 +713,7 @@ void unlock(u_long addr, size_t len) {
  *  to be resident in RAM when the call returns successfully;
  *  the pages are guaranteed to stay in RAM until later unlocked.
  * Post-Condition:
- *  On success these system calls return 0. 
+ *  On success return 0. 
  *  On error, return < 0.
  */
 int mlock(u_long addr, size_t len) {
@@ -731,7 +737,7 @@ int mlock(u_long addr, size_t len) {
  *  for len bytes. After this call, all pages that contain a part of the specified 
  *  memory range can be moved to external swap space again by the kernel.
  * Post-Condition:
- *  On success these system calls return 0.
+ *  On success return 0.
  *  On error, return < 0.
  */
 int munlock(u_long addr, size_t len) {
@@ -766,7 +772,7 @@ void lockall_current() {
  *  successfully; the pages are guaranteed to stay in RAM until later 
  *  unlocked.
  * Post-Condition:
- *  On success these system call return 0.
+ *  On success return 0.
  *  On error, return < 0.
  */
 int mlockall(int flags) {
@@ -789,7 +795,7 @@ int mlockall(int flags) {
  *  munlockall() unlocks all pages mapped into the address 
  *  space of the calling process.
  * Post-Condition:
- *  On success these system call return 0.
+ *  On success return 0.
  *  On error, return < 0.
  */
 int munlockall(void) {
@@ -1005,6 +1011,325 @@ void page_replacement_check() {
     printf("merged testcase done\n");
 }
 
-void inverted_page_check() {
+int hash(u_long va) {
+    int vpn = VPN(va);
+    return vpn % Hsize;
+}
+
+int find(u_long va, struct iPage **pp) {
+    struct iPage *p;
+    LIST_FOREACH(p, &htable[hash(va)], pp_link) {
+        assert(p != LIST_NEXT(p, pp_link));
+        if (VPN(va) == p->vpn) {
+            *pp = p;
+            return 1;
+        }
+    }
+    *pp = NULL;
+    return 0;
+}
+
+struct iPage* remove(u_long va) {
+    struct iPage *pp;
+    if (!find(va, &pp)) return NULL;
+    LIST_REMOVE(pp, pp_link);
+    pp->perm = 0;
+    pp->vpn  = 0;
+    return pp;
+}
+
+void insert(u_long va, struct iPage *pp) {
+    struct iPage *p;
+    remove(va); // if exists remove it
+    pp->perm |= PTE_V;
+    pp->vpn = VPN(va);
+    LIST_INSERT_HEAD(&htable[hash(va)], pp, pp_link);
+    assert(find(va, &p));
+}
+
+void ipage_init() {
+    int i, n;
+
+    LIST_INIT(&ipage_free_list);
+    for (i = 0; i < Hsize; i++) LIST_INIT(&htable[i]);
+
+    // init page size
+    nipage = PPN(maxpa);
+
+    // alloc memory for inverted page table
+    ipages = (struct iPage *) alloc(nipage * sizeof(struct iPage *), BY2PG, 1);
+ 
+    n = PPN(ROUND(nipage * sizeof(struct iPage), BY2PG));
+    for (i = 0; i < n; i++) {
+        ipages[i].vpn  = VPN(UPAGES) + i;
+        ipages[i].perm = (PTE_V | PTE_R);
+        LIST_INSERT_HEAD(&htable[ipages[i].vpn], ipages + i, pp_link);
+    }
+
+    for (i; i < nipage; i++) {
+        ipages[i].vpn  = 0;
+        ipages[i].perm = 0;
+        LIST_INSERT_HEAD(&ipage_free_list, ipages + i, pp_link);
+    }
+
+    printf("inverted pages init success\n");
+}
+
+int ipage_alloc(struct iPage **pp) {
+    if (LIST_EMPTY(&ipage_free_list)) return -E_NO_MEM;
+    struct iPage *p = LIST_FIRST(&ipage_free_list);
+
+    LIST_REMOVE(p, pp_link);
+    p->vpn  = 0;
+    p->perm = 0;
+    *pp = p;
+
+    return 0;
+}
+
+void ipage_free(struct iPage *pp) {
+    if (pp->perm & PTE_V) return;
+    LIST_INSERT_HEAD(&ipage_free_list, pp, pp_link);
+}
+
+int ipgdir_walk(u_long va, Pte **ppte) {
+    struct Page *pp;
     
+    if (find(va, &pp)) {
+        *ppte = ipage2pa(pp);
+        return 0;
+    } else {
+        *ppte = NULL;
+        return -E_NOT_FOUND;
+    }
+}
+
+int ipage_insert(struct iPage *pp, u_long va, u_int perm) {
+    u_int PERM = perm | PTE_V;
+    struct iPage *p;
+    Pte *pte;
+    int r;
+    
+    p = ipage_lookup(va, &pte);
+    if (p && (p->perm & PTE_V) && p != pp) ipage_remove(va);
+    if (pp->perm & PTE_V) ipage_remove(pp->vpn << PGSHIFT);
+    
+    pp->perm = PERM;
+    pp->vpn  = VPN(va);
+    insert(va, pp);
+
+    return 0;
+}
+
+struct iPage* ipage_lookup(u_long va, Pte **ppte) {
+    struct iPage *pp;
+    int r;
+    
+    if (find(va, &pp)) *ppte = ipage2pa(pp);
+    else *ppte = NULL;
+    return pp;
+}
+
+void ipage_remove(u_long va) {
+    struct iPage *pp = remove(va);
+    pp->perm = 0;
+    pp->vpn  = 0;
+    ipage_free(pp);
+}
+
+u_long iva2pa(u_long va) {
+    struct iPage *pp;
+    if (!find(va, &pp)) {
+        return ~0;
+    }
+    return ipage2pa(pp);
+}
+
+void printList(u_long va) {
+    struct iPage *pp;
+    printf("htable[%d] list:\n", hash(va));
+    LIST_FOREACH(pp, &htable[hash(va)], pp_link)
+        printf("%d ", pp - ipages);
+    printf("\n");
+}
+
+void ipage_check() {
+    struct iPage *pp, *pp0, *pp1, *pp2;
+    struct iPage_list fl;
+    u_long va1 = 0x0;
+    u_long va2 = Hsize << PGSHIFT;
+    u_long va3 = Hsize << (PGSHIFT + 1);
+    Pte *pte;
+    int i;
+
+    /**** test page alloc ****/
+    printf("test page alloc ...\n");
+    pp0 = pp1 = pp2 = NULL;
+    assert(ipage_alloc(&pp0) == 0);
+    assert(ipage_alloc(&pp1) == 0);
+    assert(ipage_alloc(&pp2) == 0);
+
+    assert(pp0);
+    assert(pp1 && pp1 != pp0);
+    assert(pp2 && pp2 != pp1 && pp2 != pp0);
+
+    printf("pp0 = %d\n", pp0 - ipages);
+    printf("pp1 = %d\n", pp1 - ipages);
+    printf("pp2 = %d\n", pp2 - ipages);
+
+    fl = ipage_free_list;
+    LIST_INIT(&ipage_free_list);
+
+    assert(ipage_alloc(&pp) == -E_NO_MEM);
+    printf("page alloc Accepted!\n");
+    /**** page alloc worked! ****/
+
+    /**** test hash table ****/
+    printf("test hash table ...\n");
+    insert(0x0, pp0);
+    assert(find(0x0, &pp));
+    assert(pp && pp == pp0);
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    insert(BY2PG, pp1);
+    assert(find(BY2PG, &pp));
+    assert(pp && pp == pp1);
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    insert(2*BY2PG, pp2);
+    assert(find(2*BY2PG, &pp));
+    assert(pp && pp == pp2);
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    assert(pp0 == remove(0x0));
+    assert(remove(0x0) == NULL);
+    assert(!find(0x0, &pp));
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    assert(pp1 == remove(BY2PG));
+    assert(remove(0x0) == NULL);
+    assert(!find(BY2PG, &pp));
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    assert(pp2 == remove(2*BY2PG));
+    assert(remove(0x0) == NULL);
+    assert(!find(2*BY2PG, &pp));
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    // test chain
+    insert(va1, pp0);
+    assert(find(va1, &pp));
+    assert(pp && pp == pp0);
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    insert(va2, pp1);
+    assert(find(va2, &pp));
+    assert(pp && pp == pp1);
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    insert(va3, pp2);
+    assert(find(va3, &pp));
+    assert(pp && pp == pp2);
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    assert(pp1 == remove(va2));
+    assert(remove(va2) == NULL);
+    assert(!find(va2, &pp));
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    assert(pp0 == remove(va1));
+    assert(remove(va1) == NULL);
+    assert(!find(va1, &pp));
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    assert(pp2 == remove(va3));
+    assert(remove(va3) == NULL);
+    assert(!find(va3, &pp));
+    printList(0x0);
+    printList(BY2PG);
+    printList(2*BY2PG);
+    printf("-----------------------------\n");
+
+    printf("hash table Accepted!\n");
+    /**** hash table worked! ****/
+
+    /**** test page insert and remove ****/
+    printf("test page insert and remove ...\n");
+    assert(ipage_insert(pp0, 0x0, 0) == 0);
+    assert(pp0->perm & PTE_V);
+    assert(iva2pa(0x0) == ipage2pa(pp0));
+
+    assert(ipage_insert(pp1, 0x0, 0) == 0);
+    assert(pp1->perm & PTE_V);
+    assert(!(pp0->perm & PTE_V));
+    assert(iva2pa(0x0) == ipage2pa(pp1));
+    assert(iva2pa(0x0) != ipage2pa(pp0));
+
+    assert(ipage_insert(pp0, 0x0, 0) == 0);
+    assert(ipage_insert(pp0, BY2PG, 0) == 0);
+    assert(iva2pa(0x0) == ~0);
+    assert(iva2pa(BY2PG) == ipage2pa(pp0));
+
+    ipage_remove(BY2PG);
+    assert(iva2pa(BY2PG) == ~0);
+    printf("page insert and remove Accepted!\n");
+    /**** page insert and remove worked ****/
+
+    /**** test pgdir walk ****/
+    printf("test pgdir walk ...\n");
+    assert(ipage_insert(pp0, 0x0, 0) == 0);
+    assert(ipage_insert(pp1, BY2PG, 0) == 0);
+    assert(ipage_insert(pp2, 2*BY2PG, 0) == 0);
+
+    assert(ipgdir_walk(0x0, &pte) == 0);
+    assert(pte == ipage2pa(pp0));
+    assert(ipgdir_walk(BY2PG, &pte) == 0);
+    assert(pte == ipage2pa(pp1));
+    assert(ipgdir_walk(2*BY2PG, &pte) == 0);
+    assert(pte == ipage2pa(pp2));
+
+    ipage_remove(0x0);
+    assert(ipgdir_walk(0x0, &pte) < 0);
+    ipage_remove(BY2PG);
+    assert(ipgdir_walk(BY2PG, &pte) < 0);
+    ipage_remove(2*BY2PG);
+    assert(ipgdir_walk(2*BY2PG, &pte) < 0);
+    printf("pgdir walk Accepted!\n");
+    /**** pgdir walk worked! ****/
+
+    ipage_free_list = fl;
+    printf("inverted pages test done!\n");
 }

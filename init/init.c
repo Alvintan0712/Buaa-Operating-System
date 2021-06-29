@@ -12,12 +12,14 @@ void mips_init()
 {
 	printf("init.c:\tmips_init() is called\n");
 	mips_detect_memory();
+	// page_check();
 	
 	mips_vm_init();
 	page_init();
-	// page_check();
+	ipage_init();
 	// lock_check();
-	page_replacement_check();
+	// page_replacement_check();
+	ipage_check();
 	
 	// env_init();
 	

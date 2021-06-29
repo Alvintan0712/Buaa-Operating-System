@@ -141,6 +141,7 @@ void bzero(void *, size_t);
 extern char bootstacktop[], bootstack[];
 
 extern u_long npage;
+extern u_int nipage;
 
 typedef u_long Pde;
 typedef u_long Pte;

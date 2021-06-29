@@ -24,6 +24,30 @@ struct Page {
 	u_short pp_lock;
 };
 
+LIST_HEAD(iPage_list, iPage);
+typedef LIST_ENTRY(iPage) iPage_LIST_entry_t;
+
+struct iPage {
+	iPage_LIST_entry_t pp_link; // HashTable LinkedList
+
+	u_int vpn; 	     // virtual page number
+	u_short perm;  	 // valid 
+};
+
+extern struct iPage *ipages;
+static inline u_long ipage2ppn(struct iPage *pp) {
+	return pp - ipages;
+}
+
+static inline u_long ipage2pa(struct iPage *pp) {
+	return ipage2ppn(pp) << PGSHIFT;
+}
+
+static inline struct iPage *pa2ipage(u_long pa) {
+	if (PPN(pa) >= nipage) panic("invalid pa: %x", pa);
+	return &ipages[PPN(pa)];
+}
+
 extern struct Page *pages;
 static inline u_long page2ppn(struct Page *pp)
 {
@@ -71,7 +95,7 @@ void page_decref(struct Page *pp);
 int pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte);
 int page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm);
 struct Page* page_lookup(Pde *pgdir, u_long va, Pte **ppte);
-void page_remove(Pde *pgdir, u_long va) ;
+void page_remove(Pde *pgdir, u_long va);
 void tlb_invalidate(Pde *pgdir, u_long va);
 
 void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm);
@@ -79,6 +103,7 @@ void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm);
 extern struct Page *pages;
 
 // lab2-challenge
+// lock pages
 void lock(u_long addr, size_t len);
 void unlock(u_long addr, size_t len);
 int mlock(u_long addr, size_t len);
@@ -86,12 +111,21 @@ int munlock(u_long addr, size_t len);
 void lockall_current();
 int mlockall(int flags);
 int munlockall(void);
+// page replacement
 void pageInsert(struct Page *pp);
 int pageExists(struct Page *pp);
+// inverted page table
+void ipage_init();
+int ipage_alloc(struct iPage **pp);
+void ipage_free(struct iPage *pp);
+int ipgdir_walk(u_long va, Pte **ppte);
+int ipage_insert(struct iPage *pp, u_long va, u_int perm);
+struct iPage* ipage_lookup(u_long va, Pte **ppte);
+void ipage_remove(u_long va);
 
 // lab2-challenge test
 void lock_check();
 void page_replacement_check();
-void inverted_page_check();
+void ipage_check();
 
 #endif /* _PMAP_H_ */
