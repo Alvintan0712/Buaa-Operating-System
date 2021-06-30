@@ -16,10 +16,10 @@ void mips_init()
 	
 	mips_vm_init();
 	page_init();
-	ipage_init();
-	// lock_check();
+	// ipage_init();
+	lock_check();
 	// page_replacement_check();
-	ipage_check();
+	// ipage_check();
 	
 	// env_init();
 	

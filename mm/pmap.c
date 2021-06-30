@@ -812,6 +812,7 @@ void lock_check() {
     u_long va;
     Pte *pte;
     struct Page *pp, *pp0, *pp1, *pp2;
+    extern char end[];
 
     assert(page_alloc(&pp0) == 0);
     assert(page_alloc(&pp1) == 0);
@@ -822,6 +823,14 @@ void lock_check() {
     assert(pp2 && pp2 != pp1 && pp2 != pp0);
 
     /********* initial test *********/
+    printf("test ULIM\n");
+    n = ROUND(end, BY2PG);
+    for (va = ULIM; va < ULIM + n; va += BY2PG) {
+        pp = page_lookup(boot_pgdir, va, &pte);
+        assert(pp->pp_lock);
+    }
+    printf("test ULIM done\n");
+
     printf("test UPAGES ...\n");    
     n = ROUND(npage * sizeof(struct Page), BY2PG);
     for (va = UPAGES; va < UPAGES + n; va += BY2PG) {
@@ -881,6 +890,18 @@ void lock_check() {
 
     page_remove(boot_pgdir, 0x0);
     /**** mlock don't lock shared memory ****/
+
+    /**** test mlock just lock the pages one time ****/
+    assert(page_insert(boot_pgdir, pp, 0x0, 0) == 0);
+    assert(mlock(0x0, BY2PG) == 0);
+    assert(mlock(0x0, BY2PG) == 0);
+    assert(mlock(0x0, BY2PG) == 0);
+    assert(pp == page_lookup(boot_pgdir, 0x0, &pte));
+    assert(pp->pp_lock);
+    assert(munlock(0x0, BY2PG) == 0);
+    assert(!pp->pp_lock);
+    page_remove(boot_pgdir, 0x0);
+    /**** mlock just lock the pages one time ****/
     printf("mlock munlock test Accepted!\n");
     /********* mlock munlock test END *********/
 
@@ -899,6 +920,11 @@ void lock_check() {
         if (pages[i].pp_ref == 1) assert((pages[i].pp_lock & 1) == 0);
         else assert(!pages[i].pp_lock);
     // make sure initial pages locked
+    n = ROUND(end, BY2PG);
+    for (va = ULIM; va < ULIM + n; va += BY2PG) {
+        pp = page_lookup(boot_pgdir, va, &pte);
+        assert(pp->pp_lock);
+    }
     n = ROUND(npage * sizeof(struct Page), BY2PG);
     for (va = UPAGES; va < UPAGES + n; va += BY2PG) {
         pp = page_lookup(boot_pgdir, va, &pte);
