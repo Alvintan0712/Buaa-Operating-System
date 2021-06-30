@@ -1081,6 +1081,8 @@ void insert(u_long va, struct iPage *pp) {
 
 void ipage_init() {
     int i, n;
+    extern char end[];
+    u_long vpn = VPN(end);
 
     LIST_INIT(&ipage_free_list);
     for (i = 0; i < Hsize; i++) LIST_INIT(&htable[i]);
@@ -1093,7 +1095,7 @@ void ipage_init() {
  
     n = PPN(ROUND(nipage * sizeof(struct iPage), BY2PG));
     for (i = 0; i < n; i++) {
-        ipages[i].vpn  = VPN(UPAGES) + i;
+        ipages[i].vpn  = vpn + i;
         ipages[i].perm = (PTE_V | PTE_R);
         LIST_INSERT_HEAD(&htable[ipages[i].vpn], ipages + i, pp_link);
     }
