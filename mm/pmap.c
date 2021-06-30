@@ -902,6 +902,12 @@ void lock_check() {
     assert(!pp->pp_lock);
     page_remove(boot_pgdir, 0x0);
     /**** mlock just lock the pages one time ****/
+
+    /**** test munlock will not unlock initial pages ****/
+    assert(munlock(UPAGES, BY2PG) == 0);
+    pp = page_lookup(boot_pgdir, UPAGES, &pte);
+    assert(pp->pp_lock);
+    /**** munlock will not unlock initial pages ****/
     printf("mlock munlock test Accepted!\n");
     /********* mlock munlock test END *********/
 
