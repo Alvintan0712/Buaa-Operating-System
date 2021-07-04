@@ -35,28 +35,27 @@ void sched_yield(void)
             LIST_REMOVE(e, env_sched_link); // remove curenv
             LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link); // insert the env to list tail            
         }
+        if (LIST_EMPTY(&env_sched_list[point])) {
+            point ^= 1;
+            if (LIST_EMPTY(&env_sched_list[point])) 
+                panic("no more environment liao ...\n");
+        }
 
         // find the new env
         do {
-            if (LIST_EMPTY(&env_sched_list[point])) point ^= 1; // if list empty change list
             e = LIST_FIRST(&env_sched_list[point]);
-            if (e && e->env_status == ENV_NOT_RUNNABLE) {
-                LIST_REMOVE(e, env_sched_link);
-                LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link);
-            } else if (e && e->env_status == ENV_FREE) {
-                LIST_REMOVE(e, env_sched_link);
+            if (e == NULL) {
+                e = curenv;
+                break;
+            } else if (e->env_status == ENV_RUNNABLE) {
+                count = e->env_pri;
+                break;
             }
-        } while (e && e->env_status != ENV_RUNNABLE);
-        count = e->env_pri;
+            LIST_REMOVE(e, env_sched_link);
+            LIST_INSERT_TAIL(&env_sched_list[point ^ 1], e, env_sched_link);
+        } while (1);
     }
 
-    if (LIST_EMPTY(&env_sched_list[0]) && LIST_EMPTY(&env_sched_list[1])) 
-        panic("no environment liao ...\n");
-
-    assert(count > 0);
-    assert(e != NULL);
-    assert(e->env_status == ENV_RUNNABLE);
-
-    count--;
+    count = count > 0 ? count - 1 : count;
     env_run(e);
 }

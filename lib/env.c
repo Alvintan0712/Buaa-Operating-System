@@ -147,7 +147,7 @@ static int env_setup_vm(struct Env *e)
      *  See ./include/mmu.h for layout.
      *  Can you use boot_pgdir as a template?
      */
-    bcopy(boot_pgdir + PDX(UTOP), pgdir + PDX(UTOP), (PTE2PT - PDX(UTOP))*sizeof(Pde));
+    bcopy(boot_pgdir + PDX(UTOP), pgdir + PDX(UTOP), PTE2PT - PDX(UTOP));
 
     // UVPT maps the env's own page table, with read-only permission.
     e->env_pgdir = pgdir;
@@ -209,6 +209,9 @@ int env_alloc(struct Env **new, u_int parent_id)
     LIST_REMOVE(e, env_link);
     *new = e;
 
+    static u_int cnt = 0;
+    e->env_nop = ++cnt;
+
     return 0;
 }
 
@@ -256,10 +259,8 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize, u_char *bin, u_int32_t
     /*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
     * hint: variable `i` has the value of `bin_size` now! */
     for (i = ROUND(i, BY2PG); i < sgsize; i += size) {
-        size = MIN(sgsize - i, BY2PG);
         if (r = page_alloc(&p)) return r;
         if (r = page_insert(env->env_pgdir, p, va + i, PTE_R)) return r;
-        // bzero(page2kva(p), size); // page_alloc already done
     }
 
     return 0;
@@ -435,6 +436,7 @@ void env_run(struct Env *e)
 
     /* Step 2: Set 'curenv' to the new environment. */
     curenv = e;
+    printf(" < running %d from %x, sp = %x >\n", e->env_id, e->env_tf.pc, e->env_tf.regs[29]);
 
     /* Step 3: Use lcontext() to switch to its address space. */
     lcontext(e->env_pgdir);
