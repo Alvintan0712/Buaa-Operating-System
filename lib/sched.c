@@ -2,8 +2,11 @@
 #include <pmap.h>
 #include <printf.h>
 
+int syscall_sched_forceReSchedule = 0;
+
 /* Overview:
  *  Implement simple round-robin scheduling.
+ *
  *
  * Hints:
  *  1. The variable which is for counting should be defined as 'static'.
@@ -29,33 +32,49 @@ void sched_yield(void)
      *  LIST_INSERT_TAIL, LIST_REMOVE, LIST_FIRST, LIST_EMPTY
      */
 
-    struct Env *e = curenv; // get the curenv
-    if (count == 0 || e == NULL || e->env_status != ENV_RUNNABLE) { // change the e to another sched_list
-        if (e != NULL) {
-            LIST_REMOVE(e, env_sched_link); // remove curenv
-            LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link); // insert the env to list tail            
-        }
-        if (LIST_EMPTY(&env_sched_list[point])) {
-            point ^= 1;
-            if (LIST_EMPTY(&env_sched_list[point])) 
-                panic("no more environment liao ...\n");
-        }
-
-        // find the new env
-        do {
-            e = LIST_FIRST(&env_sched_list[point]);
-            if (e == NULL) {
-                e = curenv;
-                break;
-            } else if (e->env_status == ENV_RUNNABLE) {
-                count = e->env_pri;
-                break;
-            }
-            LIST_REMOVE(e, env_sched_link);
-            LIST_INSERT_TAIL(&env_sched_list[point ^ 1], e, env_sched_link);
-        } while (1);
+    if (syscall_sched_forceReSchedule) {
+        count = 0;
+        syscall_sched_forceReSchedule = 0;
+    }
+    
+    struct Env *e = curenv;
+    if (count != 0 && e != NULL && e->env_status == ENV_RUNNABLE) {
+        count--;
+        env_run(e);
+    } else if (e != NULL) {
+        LIST_REMOVE(e, env_sched_link);
+        LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link);
     }
 
-    count = count > 0 ? count - 1 : count;
+    // reschedule
+    e = LIST_FIRST(&env_sched_list[point]);
+
+    if (LIST_EMPTY(&env_sched_list[point])) {
+        point = 1 - point;
+    }
+    
+    do {
+        e = LIST_FIRST(&env_sched_list[point]);
+        if (e != NULL && e->env_status == ENV_NOT_RUNNABLE) {
+            LIST_REMOVE(e, env_sched_link);
+            LIST_INSERT_TAIL(&env_sched_list[1 - point], e, env_sched_link);
+        } else if (e != NULL && e->env_status == ENV_FREE) {
+            LIST_REMOVE(e, env_sched_link);
+        }
+
+        if (LIST_EMPTY(&env_sched_list[point])) {
+            point = 1 - point;
+        }
+    } while (e != NULL && e->env_status != ENV_RUNNABLE);
+
+    if (LIST_EMPTY(&env_sched_list[0]) && LIST_EMPTY(&env_sched_list[1])) {
+        //continue;
+        panic("Empty Schedule List");
+    }
+
+    assert(e != NULL);
+    assert(e->env_status == ENV_RUNNABLE);
+
+    count = e->env_pri - 1;
     env_run(e);
 }
